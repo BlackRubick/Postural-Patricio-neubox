@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("doctor")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Patient {
+  id        Int        @id @default(autoincrement())
+  nombre    String
+  edad      Int
+  sexo      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  analyses  Analysis[]
+}
+
+model Analysis {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  tipoTest  String   @default("Podometría digital")
+  fecha     String
+  completado Boolean @default(false)
+  pdfUrl    String?  @db.Text
+
+  podometriaResult   Json?
+  podometriaDebugImg String? @db.LongText
+  podometriaHuella   String? @db.LongText
+
+  frontalResult   Json?
+  frontalDebugImg String? @db.LongText
+
+  sagitalResult   Json?
+  sagitalDebugImg String? @db.LongText
+
+  miofascialResult         Json?
+  miofascialDebugImg       String? @db.LongText
+  miofascialImagenOriginal String? @db.LongText
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
