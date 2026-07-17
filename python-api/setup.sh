@@ -3,8 +3,22 @@
 cd "$(dirname "$0")"
 
 echo "→ Creando entorno virtual..."
-# En Windows 'python3' puede no existir, usar 'python' como fallback
 PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null)
+
+if [ -z "$PYTHON" ]; then
+  echo "❌ Python no encontrado. Instálalo desde https://www.python.org/downloads/"
+  echo "   Asegúrate de marcar 'Add Python to PATH' durante la instalación."
+  exit 1
+fi
+
+# Verificar que no sea el alias vacío de Microsoft Store
+if ! "$PYTHON" --version &>/dev/null; then
+  echo "❌ Python no funciona correctamente. Instálalo desde https://www.python.org/downloads/"
+  echo "   Asegúrate de marcar 'Add Python to PATH' durante la instalación."
+  exit 1
+fi
+
+echo "   Usando: $($PYTHON --version) en $PYTHON"
 "$PYTHON" -m venv .venv
 
 echo "→ Activando entorno virtual..."
