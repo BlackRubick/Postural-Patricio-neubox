@@ -51,6 +51,11 @@ model Analysis {
   miofascialDebugImg       String? @db.LongText
   miofascialImagenOriginal String? @db.LongText
 
+  alineacionSagitalResult   Json?
+  alineacionSagitalDebugImg String? @db.LongText
+  alineacionFrontalResult   Json?
+  alineacionFrontalDebugImg String? @db.LongText
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

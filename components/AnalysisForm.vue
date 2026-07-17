@@ -121,17 +121,18 @@
           Resultado del análisis
         </div>
 
-        <!-- Podometría -->
+        <!-- Podometría (paso 0) — un resultado por pie -->
         <template v-if="step === 0 && analisisState.podometria.result">
           <div class="result-row" v-for="(r, i) in analisisState.podometria.result" :key="i">
-            <div class="result-chip">Tipo de pie: <strong>{{ r.tipo }}</strong></div>
-            <div class="result-chip">Índice plantar: <strong>{{ r.porcentajeX }}</strong></div>
+            <div class="result-chip" v-if="r.lado"><strong>Pie {{ r.lado }}</strong></div>
+            <div class="result-chip">Tipo: <strong>{{ r.tipo }}</strong></div>
+            <div class="result-chip">Índice: <strong>{{ r.porcentajeX }}</strong></div>
             <div class="result-chip" v-if="r.X">Ancho X: <strong>{{ r.X }}</strong></div>
             <div class="result-chip" v-if="r.Y">Ancho Y: <strong>{{ r.Y }}</strong></div>
           </div>
         </template>
 
-        <!-- Frontal -->
+        <!-- Frontal (paso 1) -->
         <template v-if="step === 1 && analisisState.frontal.result">
           <div class="result-row">
             <div class="result-chip">Clasificación: <strong>{{ analisisState.frontal.result.tipo }}</strong></div>
@@ -139,7 +140,7 @@
           </div>
         </template>
 
-        <!-- Sagital -->
+        <!-- Sagital (paso 2) -->
         <template v-if="step === 2 && analisisState.sagital.result">
           <div class="result-row">
             <div class="result-chip">Clasificación: <strong>{{ analisisState.sagital.result.tipo }}</strong></div>
@@ -147,14 +148,50 @@
           </div>
         </template>
 
-        <!-- Miofascial -->
-        <template v-if="step === 3 && analisisState.miofascial.result">
-          <div class="result-row" v-for="(r, i) in analisisState.miofascial.result" :key="i">
-            <div class="result-chip">Cadena: <strong>{{ r.tipo }}</strong></div>
+        <!-- Alineación sagital (paso 3) -->
+        <template v-if="step === 3 && analisisState.alineacionSagital.result">
+          <div class="result-row">
+            <div class="result-chip">Clasificación: <strong>{{ analisisState.alineacionSagital.result.tipo }}</strong></div>
+            <div class="result-chip">Hombro: <strong>{{ analisisState.alineacionSagital.result.hombro }}%</strong></div>
+            <div class="result-chip">Oreja: <strong>{{ analisisState.alineacionSagital.result.oreja }}%</strong></div>
+          </div>
+        </template>
+
+        <!-- Alineación frontal (paso 4) -->
+        <template v-if="step === 4 && analisisState.alineacionFrontal.result">
+          <div class="result-row">
+            <div class="result-chip">Clasificación: <strong>{{ analisisState.alineacionFrontal.result.tipo }}</strong></div>
+            <div class="result-chip">Desviación nariz: <strong>{{ analisisState.alineacionFrontal.result.nariz }}%</strong></div>
+          </div>
+        </template>
+
+        <!-- Miofascial (paso 5) — rasgos con palomitas + porcentaje -->
+        <template v-if="step === 5 && analisisState.miofascial.result">
+          <div v-for="(r, i) in analisisState.miofascial.result" :key="i">
+            <div class="result-row">
+              <div class="result-chip">Cadena: <strong>{{ r.tipo }}</strong></div>
+              <div class="result-chip result-chip-pct">{{ r.porcentaje?.toFixed(0) }}% de rasgos</div>
+            </div>
             <p class="result-explanation">{{ r.explicacion }}</p>
-            <ul v-if="r.rasgos?.length" class="result-rasgos">
-              <li v-for="(rasgo, idx) in r.rasgos" :key="idx">{{ rasgo }}</li>
+            <ul v-if="r.rasgos_detallados?.length" class="result-rasgos-detallados">
+              <li v-for="(rasgo, idx) in r.rasgos_detallados" :key="idx" class="rasgo-item">
+                <span class="rasgo-icon" :style="{ color: rasgoColor(rasgo.cumple, rasgo.auto) }">
+                  {{ rasgoIcon(rasgo.cumple, rasgo.auto) }}
+                </span>
+                <span class="rasgo-nombre" :class="{ 'rasgo-cumple': rasgo.cumple && rasgo.auto, 'rasgo-no': !rasgo.cumple && rasgo.auto }">
+                  {{ rasgo.nombre }}
+                </span>
+              </li>
             </ul>
+            <!-- Barra de porcentaje -->
+            <div class="rasgo-pct-bar-wrap">
+              <div class="rasgo-pct-bar">
+                <div class="rasgo-pct-fill"
+                  :style="{ width: (r.porcentaje || 0) + '%', background: (r.porcentaje||0) >= 50 ? '#16a34a' : (r.porcentaje||0) >= 25 ? '#d97706' : '#dc2626' }"
+                ></div>
+              </div>
+              <span class="rasgo-pct-label">{{ r.porcentaje?.toFixed(0) }}%</span>
+            </div>
           </div>
         </template>
 
@@ -211,7 +248,7 @@
           @click="handleSubmit"
           style="font-size:.875rem;padding:.6rem 1.4rem"
         >
-          {{ step < 3 ? 'Continuar' : 'Guardar análisis' }}
+          {{ step < LAST_STEP ? 'Continuar' : 'Guardar análisis' }}
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
             <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
@@ -260,10 +297,12 @@ const currentPatient = computed(() =>
 )
 
 const STEPS = [
-  { short: 'Podometría',  emoji: '🦶', color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
-  { short: 'Frontal',     emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
-  { short: 'Sagital',     emoji: '📐', color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
-  { short: 'Miofascial',  emoji: '💪', color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
+  { short: 'Podometría',   emoji: '🦶', color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
+  { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
+  { short: 'Sagital',      emoji: '📐', color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
+  { short: 'Alin. Sagital',emoji: '📏', color: '#f0f9ff', endpoint: 'http://127.0.0.1:8000/analyze-alignment/sagittal/' },
+  { short: 'Alin. Frontal',emoji: '⬆️', color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
+  { short: 'Miofascial',   emoji: '💪', color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
 ]
 
 const today = new Date().toISOString().slice(0, 10)
@@ -277,8 +316,9 @@ const form = ref({
   podometriaImg: null,
   tibiofemoralFrontal: null,
   tibiofemoralSagital: null,
-  miofascialFrontal: null,
-  miofascialSagital: null,
+  alineacionSagitalImg: null,
+  alineacionFrontalImg: null,
+  miofascialImg: null,
   tomarFoto: false,
 })
 
@@ -297,30 +337,45 @@ const pieBinImg = ref(null)
 const pieDebugImg = ref(null)
 
 const analisisState = ref({
-  podometria: { result: null, debugImg: null, binImg: null, huella: null },
-  frontal:    { result: null, debugImg: null },
-  sagital:    { result: null, debugImg: null },
-  miofascial: { result: null, debugImg: null, imagen_original: null },
+  podometria:        { result: null, debugImg: null, binImg: null, huella: null },
+  frontal:           { result: null, debugImg: null },
+  sagital:           { result: null, debugImg: null },
+  alineacionSagital: { result: null, debugImg: null },
+  alineacionFrontal: { result: null, debugImg: null },
+  miofascial:        { result: null, debugImg: null, imagen_original: null },
 })
+
+const LAST_STEP = STEPS.length - 1
 
 const uploadKey = computed(() => {
   if (step.value === 0) return 'podometriaImg'
   if (step.value === 1) return 'tibiofemoralFrontal'
   if (step.value === 2) return 'tibiofemoralSagital'
-  return form.value.miofascialFrontal === null ? 'miofascialFrontal' : 'miofascialSagital'
+  if (step.value === 3) return 'alineacionSagitalImg'
+  if (step.value === 4) return 'alineacionFrontalImg'
+  return 'miofascialImg'
 })
 
 const stepTitle = computed(() => {
-  const t = ['Podometría digital', 'Ángulo tibiofemoral (Frontal)', 'Ángulo tibiofemoral (Sagital)', 'Cadena miofascial causal']
+  const t = [
+    'Podometría digital',
+    'Ángulo tibiofemoral (Frontal)',
+    'Ángulo tibiofemoral (Sagital)',
+    'Alineación vertical sagital',
+    'Alineación vertical frontal',
+    'Cadena miofascial',
+  ]
   return props.initial ? 'Editar Test' : t[step.value]
 })
 
 const stepSubtitle = computed(() => {
   const s = [
     'Captura la huella plantar del paciente',
-    'Sube o toma la foto de la vista frontal',
-    'Sube o toma la foto de la vista sagital',
-    'Sube o toma la foto (frontal y/o sagital)',
+    'Sube o toma la foto de la vista frontal (rodilla)',
+    'Sube o toma la foto de la vista sagital (rodilla)',
+    'Vista lateral — línea vertical desde el tobillo',
+    'Vista frontal — línea vertical por el centro del cuerpo',
+    'Sube la foto postural para análisis de cadena miofascial',
   ]
   return s[step.value]
 })
@@ -329,7 +384,9 @@ const currentResult = computed(() => {
   if (step.value === 0) return analisisState.value.podometria.result
   if (step.value === 1) return analisisState.value.frontal.result
   if (step.value === 2) return analisisState.value.sagital.result
-  if (step.value === 3) return analisisState.value.miofascial.result
+  if (step.value === 3) return analisisState.value.alineacionSagital.result
+  if (step.value === 4) return analisisState.value.alineacionFrontal.result
+  if (step.value === 5) return analisisState.value.miofascial.result
   return null
 })
 
@@ -337,7 +394,9 @@ const isNextDisabled = computed(() => {
   if (step.value === 0) return !form.value.podometriaImg
   if (step.value === 1) return !form.value.tibiofemoralFrontal
   if (step.value === 2) return !form.value.tibiofemoralSagital
-  if (step.value === 3) return !form.value.miofascialFrontal && !form.value.miofascialSagital
+  if (step.value === 3) return !form.value.alineacionSagitalImg
+  if (step.value === 4) return !form.value.alineacionFrontalImg
+  if (step.value === 5) return !form.value.miofascialImg
   return false
 })
 
@@ -376,17 +435,19 @@ async function handleFileChange(e) {
     let ok = false
     if (s === 0 && data?.metrics) {
       ok = true
-      const calibrated = data.metrics.calibrated
-      analisisState.value.podometria.result = [{
-        tipo: data.metrics.classification,
-        porcentajeX: data.metrics.plantar_index?.toFixed(2),
-        X: calibrated
-          ? data.metrics.x_width_cm?.toFixed(1) + ' cm'
-          : data.metrics.x_width_px?.toFixed(0) + ' px (sin calibrar)',
-        Y: calibrated
-          ? data.metrics.y_width_cm?.toFixed(1) + ' cm'
-          : data.metrics.y_width_px?.toFixed(0) + ' px (sin calibrar)',
-      }]
+      // metrics ahora es array (un entry por pie)
+      const metricsArr = Array.isArray(data.metrics) ? data.metrics : [data.metrics]
+      analisisState.value.podometria.result = metricsArr.map(m => ({
+        lado: m.side || '',
+        tipo: m.classification,
+        porcentajeX: m.plantar_index?.toFixed(2),
+        X: m.calibrated
+          ? m.x_width_cm?.toFixed(1) + ' cm'
+          : m.x_width_px?.toFixed(0) + ' px (sin calibrar)',
+        Y: m.calibrated
+          ? m.y_width_cm?.toFixed(1) + ' cm'
+          : m.y_width_px?.toFixed(0) + ' px (sin calibrar)',
+      }))
       if (data.images?.annotated) { analisisState.value.podometria.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
       const reader = new FileReader()
       reader.onload = ev => { analisisState.value.podometria.huella = ev.target.result }
@@ -399,9 +460,31 @@ async function handleFileChange(e) {
       ok = true
       analisisState.value.sagital.result = { tipo: data.metrics.classification, angulo: data.metrics.knee_angle_deg?.toFixed(1) + '°' }
       if (data.images?.annotated) { analisisState.value.sagital.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
-    } else if (s === 3 && (data?.chain || data?.explanation || data?.rasgos)) {
+    } else if (s === 3 && data?.metrics) {
       ok = true
-      analisisState.value.miofascial.result = [{ tipo: data.chain, explicacion: data.explanation, rasgos: data.rasgos }]
+      analisisState.value.alineacionSagital.result = {
+        tipo: data.metrics.classification,
+        hombro: data.metrics.shoulder_deviation_pct,
+        oreja: data.metrics.ear_deviation_pct,
+        lado: data.metrics.side,
+      }
+      if (data.images?.annotated) { analisisState.value.alineacionSagital.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
+    } else if (s === 4 && data?.metrics) {
+      ok = true
+      analisisState.value.alineacionFrontal.result = {
+        tipo: data.metrics.classification,
+        nariz: data.metrics.nose_deviation_pct,
+      }
+      if (data.images?.annotated) { analisisState.value.alineacionFrontal.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
+    } else if (s === 5 && (data?.chain || data?.explanation || data?.rasgos)) {
+      ok = true
+      analisisState.value.miofascial.result = [{
+        tipo: data.chain,
+        explicacion: data.explanation,
+        rasgos: data.rasgos,
+        rasgos_detallados: data.rasgos_detallados || [],
+        porcentaje: data.porcentaje ?? 0,
+      }]
       if (data.imagen_original) analisisState.value.miofascial.imagen_original = data.imagen_original
       if (data.images?.annotated) { analisisState.value.miofascial.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
     }
@@ -419,6 +502,8 @@ function handleSubmit() {
       analisisState.value.podometria.result,
       analisisState.value.frontal.result,
       analisisState.value.sagital.result,
+      analisisState.value.alineacionSagital.result,
+      analisisState.value.alineacionFrontal.result,
       analisisState.value.miofascial.result,
     ]
     if (!checks[step.value]) {
@@ -426,14 +511,14 @@ function handleSubmit() {
       return
     }
   }
-  if (step.value < 3) {
+  if (step.value < LAST_STEP) {
     step.value++
     pieDebugImg.value = null
     pieBinImg.value = null
     return
   }
-  if (!form.value.miofascialFrontal && !form.value.miofascialSagital) {
-    Swal.fire({ icon: 'warning', title: 'Falta imagen', text: 'Sube al menos una imagen para la cadena miofascial.' })
+  if (!form.value.miofascialImg) {
+    Swal.fire({ icon: 'warning', title: 'Falta imagen', text: 'Sube la imagen para la cadena miofascial.' })
     return
   }
   const st = analisisState.value
@@ -451,6 +536,10 @@ function handleSubmit() {
     frontalDebugImg: st.frontal.debugImg ?? null,
     sagitalResult: st.sagital.result ?? null,
     sagitalDebugImg: st.sagital.debugImg ?? null,
+    alineacionSagitalResult: st.alineacionSagital.result ?? null,
+    alineacionSagitalDebugImg: st.alineacionSagital.debugImg ?? null,
+    alineacionFrontalResult: st.alineacionFrontal.result ?? null,
+    alineacionFrontalDebugImg: st.alineacionFrontal.debugImg ?? null,
     miofascialResult: st.miofascial.result ?? null,
     miofascialDebugImg: st.miofascial.debugImg ?? null,
     miofascialImagenOriginal: st.miofascial.imagen_original ?? null,
@@ -462,24 +551,71 @@ function handleSubmit() {
 function generateAndDownloadPdf(analysisId) {
   const st = analisisState.value
   const analisis = []
+
   if (st.podometria.result) {
     const imgs = []
-    if (st.podometria.huella) imgs.push({ titulo: 'Huella plantar', base64: st.podometria.huella.replace(/^data:image\/\w+;base64,/, '') })
+    if (st.podometria.huella)   imgs.push({ titulo: 'Huella plantar', base64: st.podometria.huella.replace(/^data:image\/\w+;base64,/, '') })
     if (st.podometria.debugImg) imgs.push({ titulo: 'Podometría', base64: st.podometria.debugImg.replace(/^data:image\/\w+;base64,/, '') })
-    analisis.push({ titulo: 'Podometría digital', explicacion: `Tipo de pie: ${st.podometria.result[0]?.tipo || ''}`, metricas: [`Índice: ${st.podometria.result[0]?.porcentajeX || ''}`], imagenes: imgs })
+    const metricas = st.podometria.result.flatMap(r => [
+      r.lado ? `Pie ${r.lado} — Tipo: ${r.tipo}` : `Tipo de pie: ${r.tipo}`,
+      `Índice plantar: ${r.porcentajeX || ''}`,
+      r.X ? `Ancho X: ${r.X}` : null,
+      r.Y ? `Ancho Y: ${r.Y}` : null,
+    ].filter(Boolean))
+    const exp = st.podometria.result.map(r => `${r.lado ? 'Pie ' + r.lado + ': ' : ''}${r.tipo}`).join(' | ')
+    analisis.push({ titulo: 'Podometría digital', explicacion: exp, metricas, imagenes: imgs })
   }
+
   if (st.frontal.result) {
-    const imgs = st.frontal.debugImg ? [{ titulo: 'Frontal', base64: st.frontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const imgs = st.frontal.debugImg ? [{ titulo: 'Vista frontal', base64: st.frontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
     analisis.push({ titulo: 'Ángulo tibiofemoral (frontal)', explicacion: st.frontal.result.tipo || '', metricas: [`Ángulo: ${st.frontal.result.angulo}`], imagenes: imgs })
   }
+
   if (st.sagital.result) {
-    const imgs = st.sagital.debugImg ? [{ titulo: 'Sagital', base64: st.sagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const imgs = st.sagital.debugImg ? [{ titulo: 'Vista sagital', base64: st.sagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
     analisis.push({ titulo: 'Ángulo tibiofemoral (sagital)', explicacion: st.sagital.result.tipo || '', metricas: [`Ángulo: ${st.sagital.result.angulo}`], imagenes: imgs })
   }
-  if (st.miofascial.result) {
-    const imgs = st.miofascial.debugImg ? [{ titulo: 'Miofascial', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
-    analisis.push({ titulo: 'Cadena miofascial', tipo: st.miofascial.result[0]?.tipo || '', explicacion: st.miofascial.result[0]?.explicacion || '', metricas: st.miofascial.result[0]?.rasgos || [], imagenes: imgs })
+
+  if (st.alineacionSagital.result) {
+    const r = st.alineacionSagital.result
+    const imgs = st.alineacionSagital.debugImg ? [{ titulo: 'Alineación sagital', base64: st.alineacionSagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    analisis.push({
+      titulo: 'Alineación vertical sagital',
+      explicacion: r.tipo || '',
+      metricas: [
+        `Desviación hombro: ${r.hombro != null ? r.hombro + '%' : 'N/A'}`,
+        `Desviación oreja: ${r.oreja != null ? r.oreja + '%' : 'N/A'}`,
+        `Lado evaluado: ${r.lado || ''}`,
+      ],
+      imagenes: imgs,
+    })
   }
+
+  if (st.alineacionFrontal.result) {
+    const r = st.alineacionFrontal.result
+    const imgs = st.alineacionFrontal.debugImg ? [{ titulo: 'Alineación frontal', base64: st.alineacionFrontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    analisis.push({
+      titulo: 'Alineación vertical frontal',
+      explicacion: r.tipo || '',
+      metricas: [`Desviación nariz: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`],
+      imagenes: imgs,
+    })
+  }
+
+  if (st.miofascial.result) {
+    const m = st.miofascial.result[0]
+    const imgs = st.miofascial.debugImg ? [{ titulo: 'Miofascial', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    analisis.push({
+      titulo: 'Cadena miofascial',
+      tipo: m?.tipo || '',
+      explicacion: m?.explicacion || '',
+      metricas: m?.rasgos || [],
+      rasgos_detallados: m?.rasgos_detallados || [],
+      porcentaje: m?.porcentaje ?? 0,
+      imagenes: imgs,
+    })
+  }
+
   const patient = currentPatient.value
   const reportData = {
     paciente: {
@@ -491,6 +627,7 @@ function generateAndDownloadPdf(analysisId) {
     analisis,
   }
   if (st.miofascial.imagen_original) reportData.imagen_original = st.miofascial.imagen_original
+
   fetch('http://127.0.0.1:8000/generate-report/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -511,6 +648,15 @@ function generateAndDownloadPdf(analysisId) {
 
 function goBack() {
   if (step.value > 0) { step.value--; pieDebugImg.value = null; pieBinImg.value = null }
+}
+
+function rasgoIcon(cumple, auto) {
+  if (!auto) return '·'
+  return cumple ? '✓' : '✗'
+}
+function rasgoColor(cumple, auto) {
+  if (!auto) return '#94a3b8'
+  return cumple ? '#16a34a' : '#dc2626'
 }
 
 function handleCancel() {
@@ -790,14 +936,62 @@ function handleCapture() {
 }
 .result-chip strong { color: var(--text-base); font-weight: 700; }
 .result-explanation { font-size: 0.8rem; color: var(--text-muted); margin: 4px 0; width: 100%; }
-.result-rasgos {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin: 4px 0 0 1rem;
-  padding: 0;
-  list-style: disc;
+.result-chip-pct {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+  color: #0369a1;
+  font-weight: 700;
 }
-.result-rasgos li { margin-bottom: 2px; }
+.result-rasgos-detallados {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  width: 100%;
+}
+.rasgo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.rasgo-icon {
+  font-size: 0.85rem;
+  font-weight: 800;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.rasgo-nombre  { color: var(--text-muted); }
+.rasgo-cumple  { color: #15803d; font-weight: 600; }
+.rasgo-no      { color: #b91c1c; }
+.rasgo-pct-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  width: 100%;
+}
+.rasgo-pct-bar {
+  flex: 1;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.rasgo-pct-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.rasgo-pct-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-base);
+  min-width: 32px;
+  text-align: right;
+}
 .result-debug { margin-top: 10px; }
 .result-debug-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
 .result-debug-img { max-width: 280px; border-radius: var(--radius-sm); border: 1.5px solid #d1fae5; }

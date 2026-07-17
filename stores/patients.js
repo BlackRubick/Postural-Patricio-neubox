@@ -55,6 +55,10 @@ export const usePatientsStore = defineStore('patients', () => {
         miofascialResult: data.miofascialResult ?? null,
         miofascialDebugImg: data.miofascialDebugImg ?? null,
         miofascialImagenOriginal: data.miofascialImagenOriginal ?? null,
+        alineacionSagitalResult: data.alineacionSagitalResult ?? null,
+        alineacionSagitalDebugImg: data.alineacionSagitalDebugImg ?? null,
+        alineacionFrontalResult: data.alineacionFrontalResult ?? null,
+        alineacionFrontalDebugImg: data.alineacionFrontalDebugImg ?? null,
       },
     })
     const patient = patients.value.find(p => p.id === patientId)
@@ -83,6 +87,10 @@ export const usePatientsStore = defineStore('patients', () => {
         miofascialResult: data.miofascialResult ?? null,
         miofascialDebugImg: data.miofascialDebugImg ?? null,
         miofascialImagenOriginal: data.miofascialImagenOriginal ?? null,
+        alineacionSagitalResult: data.alineacionSagitalResult ?? null,
+        alineacionSagitalDebugImg: data.alineacionSagitalDebugImg ?? null,
+        alineacionFrontalResult: data.alineacionFrontalResult ?? null,
+        alineacionFrontalDebugImg: data.alineacionFrontalDebugImg ?? null,
       },
     })
     const patient = patients.value.find(p => p.id === patientId)

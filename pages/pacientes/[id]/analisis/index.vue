@@ -29,6 +29,7 @@
 
     <AnalysisList
       :analyses="analyses"
+      :patient="patient"
       @add="navigateTo(`/pacientes/${route.params.id}/analisis/nuevo`)"
       @edit="a => navigateTo(`/pacientes/${route.params.id}/analisis/${a.id}/editar`)"
       @delete="handleDelete"

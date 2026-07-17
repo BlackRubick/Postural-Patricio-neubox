@@ -20,6 +20,10 @@ export default defineEventHandler(async (event) => {
       miofascialResult: body.miofascialResult ?? null,
       miofascialDebugImg: body.miofascialDebugImg ?? null,
       miofascialImagenOriginal: body.miofascialImagenOriginal ?? null,
+      alineacionSagitalResult: body.alineacionSagitalResult ?? null,
+      alineacionSagitalDebugImg: body.alineacionSagitalDebugImg ?? null,
+      alineacionFrontalResult: body.alineacionFrontalResult ?? null,
+      alineacionFrontalDebugImg: body.alineacionFrontalDebugImg ?? null,
     },
   })
 })

@@ -42,7 +42,8 @@
             <span :style="{ color: typeColor(a.tipoTest).fg }">{{ typeEmoji(a.tipoTest) }}</span>
           </div>
           <div class="flex-1 min-w-0">
-            <span class="font-bold text-gray-900 text-sm block truncate">{{ a.tipoTest }}</span>
+            <span class="font-bold text-gray-900 text-sm block truncate">{{ patient?.nombre || a.tipoTest }}</span>
+            <span class="text-xs text-gray-500 block truncate">{{ a.tipoTest }}</span>
             <span class="text-xs text-gray-400 mt-0.5 block">{{ a.fecha }}</span>
           </div>
           <span
@@ -111,6 +112,7 @@ import Swal from 'sweetalert2'
 
 defineProps({
   analyses: { type: Array, default: () => [] },
+  patient: { type: Object, default: null },
 })
 defineEmits(['add', 'edit', 'delete'])
 

@@ -22,7 +22,8 @@ async def generate_report(request: Request):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-# -------- FUNCIONES --------
+# -------- UTILIDADES --------
+
 def angle_between_points(a, b, c):
     ba = np.array(a) - np.array(b)
     bc = np.array(c) - np.array(b)
@@ -36,6 +37,7 @@ def angle_between_points(a, b, c):
     if np.isnan(deg):
         raise ValueError("Ángulo inválido (NaN)")
     return deg
+
 
 class PoseDetector:
     def __init__(self):
@@ -66,14 +68,203 @@ class PoseDetector:
             "right_ankle": pt(mp_lm.RIGHT_ANKLE),
             "right_shoulder": pt(mp_lm.RIGHT_SHOULDER),
             "left_shoulder":  pt(mp_lm.LEFT_SHOULDER),
-            # Visibility scores for side selection in sagittal view
-            "left_hip_vis":   vis(mp_lm.LEFT_HIP),
-            "left_knee_vis":  vis(mp_lm.LEFT_KNEE),
-            "left_ankle_vis": vis(mp_lm.LEFT_ANKLE),
+            "nose":           pt(mp_lm.NOSE),
+            "left_ear":       pt(mp_lm.LEFT_EAR),
+            "right_ear":      pt(mp_lm.RIGHT_EAR),
+            # Visibility
+            "left_hip_vis":    vis(mp_lm.LEFT_HIP),
+            "left_knee_vis":   vis(mp_lm.LEFT_KNEE),
+            "left_ankle_vis":  vis(mp_lm.LEFT_ANKLE),
             "right_hip_vis":   vis(mp_lm.RIGHT_HIP),
             "right_knee_vis":  vis(mp_lm.RIGHT_KNEE),
             "right_ankle_vis": vis(mp_lm.RIGHT_ANKLE),
+            "left_ear_vis":    vis(mp_lm.LEFT_EAR),
+            "right_ear_vis":   vis(mp_lm.RIGHT_EAR),
         }
+
+
+# -------- RASGOS POR CADENA --------
+
+CHAIN_TRAITS = {
+    "Cadena de espiración": [
+        "Pelvis anteriorizada",
+        "Tórax trasladado posteriormente",
+        "Hipercifosis",
+        "Hiperlordosis lumbar",
+        "Pie en pronación / plano",
+        "Rotación interna de cadera",
+    ],
+    "Cadena de inspiración": [
+        "Rectificación cervical",
+        "Inversión cervical",
+        "Dorso plano",
+        "Pelvis posteriorizado",
+        "Rotación externa de cadera",
+        "Hiperlordosis lumbar",
+        "Recurvatum de rodilla",
+        "Pie en eversión",
+        "Genu recurvatum",
+        "Ascenso de rótula",
+    ],
+    "Cadena de flexión": [
+        "Genu flexum",
+        "Cifosis",
+        "Hipercifosis",
+        "Inversión de cervicales",
+        "Proyección anterior de la cabeza",
+        "Rectificación lumbar",
+        "Valgo de rodilla",
+        "Rotación interna",
+        "MsSs: descenso, aducción, rotación interna",
+        "Cierre de costillas",
+        "Esternón hundido",
+        "Flexión de Msls",
+    ],
+    "Cadena de extensión": [
+        "Genu recurvatum",
+        "Dorso plano",
+        "Rectificación cervical",
+        "Hiperlordosis baja",
+        "Extensión de Msls",
+        "MsSs: ascenso, rotación externa, abducción",
+        "Apertura de costillas",
+        "Rotación interna de cadera y rodilla",
+        "Ascenso de rótula",
+        "Pie cavo",
+        "Dedos en garra",
+        "Esternón horizontal",
+        "Proyección posterior de la cabeza",
+    ],
+    "Cadena de apertura": [
+        "Pie plano",
+        "Genu flexum",
+        "MsSs: ascenso, abducción, rotación externa, supinación",
+        "Caderas en rotación externa",
+        "Hipercifosis alta",
+        "Rectificación lumbar",
+        "Varo de rodilla",
+        "Nutación del iliaco",
+        "Anteproyección del cuello",
+        "Báscula anterior del cuello",
+        "Báscula anterior del tronco",
+    ],
+    "Cadena de cierre": [
+        "MsSs: descenso, aducción, rotación interna, flexo-pronación",
+        "Parrilla costal cerrada",
+        "Rotación interna de cadera",
+        "Valgo de rodilla",
+        "Flexum de rodilla",
+        "Pie plano",
+        "Valgo de calcáneo",
+        "Flexo de coxofemoral",
+        "Contranutación de ilíacos",
+        "Clavículas en V",
+    ],
+}
+
+
+def _detect_single_trait(name, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_ra, scale):
+    """
+    Retorna (cumple: bool, auto: bool).
+    auto=False significa que no se puede detectar automáticamente desde la imagen.
+    scale = distancia hombro-tobillo para normalizar desplazamientos.
+    """
+    n = name.lower()
+
+    sh_x = (lm["left_shoulder"][0] + lm["right_shoulder"][0]) / 2
+    sh_y = (lm["left_shoulder"][1] + lm["right_shoulder"][1]) / 2
+    hip_x = (lm["left_hip"][0] + lm["right_hip"][0]) / 2
+    ank_x = (lm["left_ankle"][0] + lm["right_ankle"][0]) / 2
+    ank_y = (lm["left_ankle"][1] + lm["right_ankle"][1]) / 2
+    ear_x = (lm["left_ear"][0] + lm["right_ear"][0]) / 2
+    nose_x = lm["nose"][0]
+
+    # Determinar dirección de la mirada en sagital
+    face_dir = 1 if nose_x > sh_x else -1
+
+    # Desplazamientos A-P normalizados (positivo = anterior)
+    ref = max(scale, 50)
+    ear_vs_sh  = face_dir * (ear_x  - sh_x)  / ref
+    sh_vs_hip  = face_dir * (sh_x   - hip_x) / ref
+    hip_vs_ank = face_dir * (hip_x  - ank_x) / ref
+
+    avg_knee = (ang_lk + ang_rk) / 2
+    avg_hip  = (ang_lh + ang_rh) / 2
+
+    # === Detecciones automáticas ===
+
+    if "genu flexum" in n or "flexum de rodilla" in n:
+        return any(a < 175 for a in [ang_lk, ang_rk]), True
+
+    if "genu recurvatum" in n or "recurvatum de rodilla" in n:
+        return any(a > 185 for a in [ang_lk, ang_rk]), True
+
+    if "proyección anterior de la cabeza" in n or "anteproyección del cuello" in n:
+        return ear_vs_sh > 0.08, True
+
+    if "proyección posterior de la cabeza" in n:
+        return ear_vs_sh < -0.08, True
+
+    if "báscula anterior del cuello" in n:
+        return ear_vs_sh > 0.06, True
+
+    if "pelvis anteriorizada" in n:
+        return hip_vs_ank > 0.08, True
+
+    if "pelvis posteriorizado" in n:
+        return hip_vs_ank < -0.08, True
+
+    if "hipercifosis alta" in n:
+        return sh_vs_hip < -0.18, True
+
+    if "hipercifosis" in n:
+        return sh_vs_hip < -0.10, True
+
+    if "cifosis" in n:
+        return sh_vs_hip < -0.06, True
+
+    if "hiperlordosis" in n or "hiperlordorsis" in n:
+        return avg_hip > 175, True
+
+    if "rectificación lumbar" in n:
+        return avg_hip < 165, True
+
+    if "dorso plano" in n:
+        return abs(sh_vs_hip) < 0.05, True
+
+    if "tórax trasladado posteriormente" in n:
+        return sh_vs_hip < -0.12, True
+
+    if "báscula anterior del tronco" in n:
+        return sh_vs_hip > 0.12, True
+
+    if "rectificación cervical" in n or "inversión cervical" in n or "inversión de cervicales" in n:
+        return abs(ear_vs_sh) < 0.04, True
+
+    if "flexo de coxofemoral" in n:
+        return avg_hip < 165, True
+
+    # Traits that require frontal view or specialized instruments
+    return False, False
+
+
+def _detect_chain_traits(chain, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_ra):
+    traits_names = CHAIN_TRAITS.get(chain, [])
+    sh_y = (lm["left_shoulder"][1] + lm["right_shoulder"][1]) / 2
+    ank_y = (lm["left_ankle"][1]   + lm["right_ankle"][1])   / 2
+    scale = abs(sh_y - ank_y)
+
+    rasgos = []
+    for name in traits_names:
+        cumple, auto = _detect_single_trait(name, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_ra, scale)
+        rasgos.append({"nombre": name, "cumple": cumple, "auto": auto})
+
+    total = len(rasgos)
+    cumplidos = sum(1 for r in rasgos if r["cumple"])
+    porcentaje = round((cumplidos / total * 100) if total > 0 else 0, 1)
+
+    return rasgos, porcentaje
+
 
 # -------- ENDPOINTS --------
 
@@ -91,13 +282,9 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
         ang_left_knee  = angle_between_points(lm["left_hip"],      lm["left_knee"],  lm["left_ankle"])
         ang_right_knee = angle_between_points(lm["right_hip"],     lm["right_knee"], lm["right_ankle"])
 
-        if not all(k in lm for k in ["left_hip", "left_shoulder", "right_hip", "right_shoulder"]):
-            raise ValueError("No se detectaron hombros para análisis de cadena completa.")
-
         ang_left_hip  = angle_between_points(lm["left_shoulder"],  lm["left_hip"],  lm["left_knee"])
         ang_right_hip = angle_between_points(lm["right_shoulder"], lm["right_hip"], lm["right_knee"])
 
-        # Ankle flexion: angle between shin and vertical axis downward
         ang_left_ankle  = angle_between_points(lm["left_knee"],  lm["left_ankle"],  (lm["left_ankle"][0],  lm["left_ankle"][1]  + 100))
         ang_right_ankle = angle_between_points(lm["right_knee"], lm["right_ankle"], (lm["right_ankle"][0], lm["right_ankle"][1] + 100))
 
@@ -107,19 +294,9 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
         if any(np.isnan(a) for a in all_angles):
             raise ValueError("Ángulos inválidos (NaN)")
 
-        rasgos = [
-            f"Ángulo rodilla izquierda: {ang_left_knee:.1f}°",
-            f"Ángulo rodilla derecha: {ang_right_knee:.1f}°",
-            f"Ángulo cadera izquierda: {ang_left_hip:.1f}°",
-            f"Ángulo cadera derecha: {ang_right_hip:.1f}°",
-            f"Ángulo tobillo izquierdo: {ang_left_ankle:.1f}°",
-            f"Ángulo tobillo derecho: {ang_right_ankle:.1f}°",
-        ]
-
         chain = "Indeterminada"
         explanation = "No se pudo clasificar la cadena con los datos actuales."
 
-        # Order matters: most specific/restrictive conditions first
         if all(a < 160 for a in all_angles):
             chain = "Cadena de espiración"
             explanation = "Postura global de cierre y espiración (todos los ángulos pequeños)."
@@ -140,10 +317,28 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
             chain = "Cadena de cierre"
             explanation = "Caderas o tobillos en cierre (flexión o aducción marcada)."
 
+        rasgos_detallados, porcentaje = _detect_chain_traits(
+            chain, lm,
+            ang_left_knee, ang_right_knee,
+            ang_left_hip, ang_right_hip,
+            ang_left_ankle, ang_right_ankle,
+        )
+
+        rasgos_legacy = [
+            f"Ángulo rodilla izquierda: {ang_left_knee:.1f}°",
+            f"Ángulo rodilla derecha: {ang_right_knee:.1f}°",
+            f"Ángulo cadera izquierda: {ang_left_hip:.1f}°",
+            f"Ángulo cadera derecha: {ang_right_hip:.1f}°",
+            f"Ángulo tobillo izquierdo: {ang_left_ankle:.1f}°",
+            f"Ángulo tobillo derecho: {ang_right_ankle:.1f}°",
+        ]
+
         return {
             "chain": chain,
             "explanation": explanation,
-            "rasgos": rasgos,
+            "rasgos": rasgos_legacy,
+            "rasgos_detallados": rasgos_detallados,
+            "porcentaje": porcentaje,
             "left_knee_angle":   ang_left_knee,
             "right_knee_angle":  ang_right_knee,
             "left_hip_angle":    ang_left_hip,
@@ -163,20 +358,170 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
                 "chain": None,
                 "explanation": f"[{exc_type}] {msg}\nTraceback: {tb}",
                 "rasgos": [],
-                "left_knee_angle": None, "right_knee_angle": None,
-                "left_hip_angle":  None, "right_hip_angle":  None,
-                "left_ankle_angle": None, "right_ankle_angle": None,
+                "rasgos_detallados": [],
+                "porcentaje": 0,
             }
         )
 
 
+# -------- ALINEACIÓN SAGITAL --------
+
+@router.post("/analyze-alignment/sagittal/")
+def analyze_alignment_sagittal(file: UploadFile = File(...)):
+    """Línea vertical desde el tobillo — mide desviación de hombro y oreja."""
+    image_bytes = file.file.read()
+    npimg = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Imagen inválida"})
+
+    detector = PoseDetector()
+    try:
+        lm = detector.detect(img)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+    # Elegir el lado más visible
+    left_vis  = lm["left_hip_vis"]  + lm["left_knee_vis"]  + lm["left_ankle_vis"]
+    right_vis = lm["right_hip_vis"] + lm["right_knee_vis"] + lm["right_ankle_vis"]
+    side = "left" if left_vis >= right_vis else "right"
+
+    ankle    = lm[f"{side}_ankle"]
+    shoulder = lm[f"{side}_shoulder"]
+    ear      = lm[f"{side}_ear"]
+    nose     = lm["nose"]
+
+    # Referencia: X del tobillo
+    ref_x = ankle[0]
+    nose_x = nose[0]
+
+    # Dirección de la cara (positivo = paciente mira hacia la derecha en imagen)
+    face_dir = 1 if nose_x > shoulder[0] else -1
+
+    # Escala: distancia vertical hombro-tobillo
+    scale = max(abs(shoulder[1] - ankle[1]), 50)
+
+    shoulder_ant = face_dir * (shoulder[0] - ref_x) / scale * 100  # % de la altura
+    ear_ant      = face_dir * (ear[0]      - ref_x) / scale * 100
+
+    THRESH = 8.0
+    if abs(shoulder_ant) < THRESH and abs(ear_ant) < THRESH:
+        classification = "Normal"
+    elif shoulder_ant > THRESH and ear_ant > THRESH:
+        classification = "Proyección anterior de tronco y cabeza"
+    elif shoulder_ant < -THRESH and ear_ant < -THRESH:
+        classification = "Proyección posterior de tronco y cabeza"
+    elif ear_ant > THRESH:
+        classification = "Proyección anterior de la cabeza"
+    elif ear_ant < -THRESH:
+        classification = "Proyección posterior de la cabeza"
+    elif shoulder_ant > THRESH:
+        classification = "Proyección anterior del tronco"
+    elif shoulder_ant < -THRESH:
+        classification = "Proyección posterior del tronco"
+    else:
+        classification = "Desalineación postural"
+
+    annotated = img.copy()
+    line_color = (200, 0, 200)
+
+    # Línea vertical de referencia desde tobillo hacia arriba
+    top_y = max(ear[1] - 30, 0)
+    cv2.line(annotated, (ref_x, ankle[1] + 20), (ref_x, top_y), line_color, 2)
+
+    # Puntos anatómicos
+    cv2.circle(annotated, ankle,    9, (0, 220, 0),   -1)
+    cv2.circle(annotated, shoulder, 9, (0, 140, 255), -1)
+    cv2.circle(annotated, ear,      9, (0, 0, 255),   -1)
+
+    # Líneas de desviación horizontal
+    cv2.line(annotated, (ref_x, shoulder[1]), (shoulder[0], shoulder[1]), (0, 140, 255), 2)
+    cv2.line(annotated, (ref_x, ear[1]),      (ear[0],      ear[1]),      (0, 0, 255),   2)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(annotated, f"Hombro: {shoulder_ant:+.1f}%", (max(shoulder[0] - 120, 5), shoulder[1] - 10), font, 0.55, (0, 0, 0), 2)
+    cv2.putText(annotated, f"Oreja: {ear_ant:+.1f}%",       (max(ear[0] - 100, 5),      ear[1] - 10),      font, 0.55, (0, 0, 0), 2)
+    cv2.putText(annotated, f"Ref. tobillo", (ref_x + 5, ankle[1] + 18), font, 0.5, (0, 180, 0), 2)
+
+    _, buffer = cv2.imencode('.png', annotated)
+    annotated_b64 = base64.b64encode(buffer).decode('utf-8')
+
+    return {
+        "metrics": {
+            "classification": classification,
+            "shoulder_deviation_pct": round(shoulder_ant, 1),
+            "ear_deviation_pct": round(ear_ant, 1),
+            "side": side,
+        },
+        "images": {"annotated": f"data:image/png;base64,{annotated_b64}"},
+    }
+
+
+# -------- ALINEACIÓN FRONTAL --------
+
+@router.post("/analyze-alignment/frontal/")
+def analyze_alignment_frontal(file: UploadFile = File(...)):
+    """Línea vertical por el centro del cuerpo — mide desviación de la nariz."""
+    image_bytes = file.file.read()
+    npimg = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+    if img is None:
+        return JSONResponse(status_code=400, content={"error": "Imagen inválida"})
+
+    detector = PoseDetector()
+    try:
+        lm = detector.detect(img)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+    # Centro del cuerpo = punto medio de caderas
+    hip_center_x = (lm["left_hip"][0]  + lm["right_hip"][0])  // 2
+    ank_center_y = (lm["left_ankle"][1] + lm["right_ankle"][1]) // 2
+    nose = lm["nose"]
+
+    # Escala: ancho de hombros
+    sh_width = max(abs(lm["right_shoulder"][0] - lm["left_shoulder"][0]), 50)
+
+    nose_dev = nose[0] - hip_center_x
+    nose_dev_pct = (nose_dev / sh_width) * 100
+
+    THRESH = 10.0
+    if abs(nose_dev_pct) < THRESH:
+        classification = "Normal"
+    elif nose_dev_pct > THRESH:
+        classification = "Desviación lateral derecha"
+    else:
+        classification = "Desviación lateral izquierda"
+
+    annotated = img.copy()
+    top_y = max(nose[1] - 30, 0)
+
+    # Línea vertical central
+    cv2.line(annotated, (hip_center_x, ank_center_y + 20), (hip_center_x, top_y), (200, 0, 200), 2)
+
+    # Nariz y desviación
+    cv2.circle(annotated, nose, 9, (0, 0, 255), -1)
+    cv2.line(annotated, (hip_center_x, nose[1]), (nose[0], nose[1]), (0, 0, 255), 2)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(annotated, f"Nariz: {nose_dev_pct:+.1f}%", (nose[0] + 10, nose[1] - 10), font, 0.55, (0, 0, 0), 2)
+    cv2.putText(annotated, "Centro", (hip_center_x + 5, ank_center_y + 18), font, 0.5, (180, 0, 180), 2)
+
+    _, buffer = cv2.imencode('.png', annotated)
+    annotated_b64 = base64.b64encode(buffer).decode('utf-8')
+
+    return {
+        "metrics": {
+            "classification": classification,
+            "nose_deviation_pct": round(nose_dev_pct, 1),
+        },
+        "images": {"annotated": f"data:image/png;base64,{annotated_b64}"},
+    }
+
+
+# -------- RODILLA FRONTAL --------
+
 def _classify_knee_frontal(angle_left, angle_right):
-    """
-    Classify each knee individually for frontal view.
-    Clinical reference: normal tibiofemoral angle is 174–180°.
-    Valgus (knock knees): angle < 170°
-    Varus  (bow legs):    angle > 182°
-    """
     def side_class(ang):
         if ang < 170:
             return "Valgo"
@@ -211,17 +556,14 @@ def draw_knee_frontal(image: np.ndarray):
     r_knee  = landmarks["right_knee"]
     r_hip   = landmarks["right_hip"]
 
-    # Draw anatomical points
     for pt in [l_ankle, l_knee, l_hip, r_ankle, r_knee, r_hip]:
         cv2.circle(annotated, pt, 8, (0, 255, 255), -1)
 
-    # Draw limb segments
-    cv2.line(annotated, l_hip,   l_knee,  (0, 255, 0), 3)
-    cv2.line(annotated, l_knee,  l_ankle, (255, 0, 0), 3)
-    cv2.line(annotated, r_hip,   r_knee,  (0, 255, 0), 3)
-    cv2.line(annotated, r_knee,  r_ankle, (255, 0, 0), 3)
+    cv2.line(annotated, l_hip,  l_knee,  (0, 255, 0), 3)
+    cv2.line(annotated, l_knee, l_ankle, (255, 0, 0), 3)
+    cv2.line(annotated, r_hip,  r_knee,  (0, 255, 0), 3)
+    cv2.line(annotated, r_knee, r_ankle, (255, 0, 0), 3)
 
-    # Tibiofemoral angle: hip → knee → ankle (clinically correct reference points)
     angle_left  = angle_between_points(l_hip, l_knee, l_ankle)
     angle_right = angle_between_points(r_hip, r_knee, r_ankle)
 
@@ -245,7 +587,6 @@ def draw_knee_sagittal(image: np.ndarray):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
         return annotated, None, None
 
-    # Use MediaPipe visibility scores to pick the more visible side
     left_vis  = landmarks["left_hip_vis"]  + landmarks["left_knee_vis"]  + landmarks["left_ankle_vis"]
     right_vis = landmarks["right_hip_vis"] + landmarks["right_knee_vis"] + landmarks["right_ankle_vis"]
     side = "left" if left_vis >= right_vis else "right"
