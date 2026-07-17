@@ -3,14 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently --names \"NUXT,PYTHON\" --prefix-colors \"blue,green\" \"nuxt dev\" \"bash python-api/start.sh\"",
+    "dev": "concurrently --names \"NUXT,PYTHON\" --prefix-colors \"blue,green\" \"nuxt dev\" \"npm run dev:python\"",
     "dev:nuxt": "nuxt dev",
-    "dev:python": "bash python-api/start.sh",
-    "setup:python": "bash python-api/setup.sh",
+    "dev:python": "node -e \"const{execSync:e,platform:p}=require('child_process');e(p()==='win32'?'powershell -ExecutionPolicy Bypass -File python-api/start.ps1':'bash python-api/start.sh',{stdio:'inherit'})\"",
+    "setup:python": "node -e \"const{execSync:e,platform:p}=require('child_process');e(p()==='win32'?'powershell -ExecutionPolicy Bypass -File python-api/setup.ps1':'bash python-api/setup.sh',{stdio:'inherit'})\"",
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "prisma generate && nuxt prepare"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.9.0",

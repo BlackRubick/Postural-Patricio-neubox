@@ -7,5 +7,11 @@ if [ ! -d ".venv" ]; then
   exit 1
 fi
 
-source .venv/bin/activate
+# Windows usa Scripts/activate, Linux/Mac usa bin/activate
+if [ -f ".venv/Scripts/activate" ]; then
+  source .venv/Scripts/activate
+else
+  source .venv/bin/activate
+fi
+
 exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload

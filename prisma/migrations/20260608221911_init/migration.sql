@@ -1,4 +1,18 @@
 -- CreateTable
+CREATE TABLE `User` (
+    `id` INTEGER NOT NULL AUTO_INCREMENT,
+    `email` VARCHAR(191) NOT NULL,
+    `password` VARCHAR(191) NOT NULL,
+    `name` VARCHAR(191) NULL,
+    `role` VARCHAR(191) NOT NULL DEFAULT 'doctor',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `User_email_key`(`email`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+qq
+-- CreateTable
 CREATE TABLE `Patient` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `nombre` VARCHAR(191) NOT NULL,
@@ -28,6 +42,10 @@ CREATE TABLE `Analysis` (
     `miofascialResult` JSON NULL,
     `miofascialDebugImg` LONGTEXT NULL,
     `miofascialImagenOriginal` LONGTEXT NULL,
+    `alineacionSagitalResult` JSON NULL,
+    `alineacionSagitalDebugImg` LONGTEXT NULL,
+    `alineacionFrontalResult` JSON NULL,
+    `alineacionFrontalDebugImg` LONGTEXT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
