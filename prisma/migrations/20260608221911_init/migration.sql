@@ -11,7 +11,7 @@ CREATE TABLE `User` (
     UNIQUE INDEX `User_email_key`(`email`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-qq
+
 -- CreateTable
 CREATE TABLE `Patient` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
