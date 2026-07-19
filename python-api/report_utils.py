@@ -224,6 +224,8 @@ def new_page(c, width, height, page_num):
 def _draw_image_block(c, y, width, height, page_num, img_b64, titulo):
     """Dibuja un bloque de imagen con título. Retorna (y_nuevo, page_num)."""
     try:
+        if ',' in img_b64:
+            img_b64 = img_b64.split(',', 1)[1]
         img_bytes = base64.b64decode(img_b64)
         img_reader = ImageReader(BytesIO(img_bytes))
 
