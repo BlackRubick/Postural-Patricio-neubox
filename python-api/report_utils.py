@@ -5,8 +5,6 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle
 import base64
-import tempfile
-import os
 
 
 PRIMARY       = colors.HexColor("#0D2B4E")
@@ -227,33 +225,33 @@ def _draw_image_block(c, y, width, height, page_num, img_b64, titulo):
     """Dibuja un bloque de imagen con título. Retorna (y_nuevo, page_num)."""
     try:
         img_bytes = base64.b64decode(img_b64)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp:
-            tmp.write(img_bytes)
-            tmp.flush()
-            if y < IMG_H + 60:
-                page_num += 1
-                y = new_page(c, width, height, page_num)
-                y -= 10
-            c.setStrokeColor(DIVIDER)
-            c.setLineWidth(0.8)
-            c.setFillColor(WHITE)
-            c.roundRect(MARGIN_L + 8, y - IMG_H - 24, IMG_W + 8, IMG_H + 22, 5, fill=1, stroke=1)
-            c.setFillColor(PRIMARY)
-            c.setFont("Helvetica-Bold", 8)
-            c.drawString(MARGIN_L + 16, y - 14, titulo)
-            c.drawImage(
-                ImageReader(tmp.name),
-                MARGIN_L + 12, y - IMG_H - 18,
-                width=IMG_W, height=IMG_H,
-                preserveAspectRatio=True,
-                mask='auto'
-            )
-            y -= IMG_H + 32
-            os.unlink(tmp.name)
-            if y < 150:
-                page_num += 1
-                y = new_page(c, width, height, page_num)
-                y -= 10
+        img_reader = ImageReader(BytesIO(img_bytes))
+
+        if y < IMG_H + 60:
+            page_num += 1
+            y = new_page(c, width, height, page_num)
+            y -= 10
+
+        c.setStrokeColor(DIVIDER)
+        c.setLineWidth(0.8)
+        c.setFillColor(WHITE)
+        c.roundRect(MARGIN_L + 8, y - IMG_H - 24, IMG_W + 8, IMG_H + 22, 5, fill=1, stroke=1)
+        c.setFillColor(PRIMARY)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(MARGIN_L + 16, y - 14, titulo)
+        c.drawImage(
+            img_reader,
+            MARGIN_L + 12, y - IMG_H - 18,
+            width=IMG_W, height=IMG_H,
+            preserveAspectRatio=True,
+            mask='auto'
+        )
+        y -= IMG_H + 32
+
+        if y < 150:
+            page_num += 1
+            y = new_page(c, width, height, page_num)
+            y -= 10
     except Exception as e:
         c.setFillColor(colors.HexColor("#FFF5F5"))
         c.roundRect(MARGIN_L + 8, y - 20, COL_WIDTH - 8, 20, 3, fill=1, stroke=0)
