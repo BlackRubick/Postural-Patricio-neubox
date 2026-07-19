@@ -75,6 +75,21 @@
             Notas
           </button>
         </div>
+
+        <!-- PDF Button -->
+        <button
+          class="pdf-btn"
+          :class="{ 'pdf-btn-loading': pdfLoading === a.id }"
+          :disabled="pdfLoading === a.id"
+          @click="generatePdf(a)"
+        >
+          <svg v-if="pdfLoading !== a.id" width="13" height="13" fill="none" viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div v-else class="spinner" style="width:13px;height:13px;border-width:2px;border-color:#fff transparent transparent transparent"></div>
+          {{ pdfLoading === a.id ? 'Generando PDF...' : 'Descargar PDF' }}
+        </button>
       </div>
     </div>
 
@@ -110,7 +125,7 @@
 <script setup>
 import Swal from 'sweetalert2'
 
-defineProps({
+const props = defineProps({
   analyses: { type: Array, default: () => [] },
   patient: { type: Object, default: null },
 })
@@ -119,6 +134,111 @@ defineEmits(['add', 'edit', 'delete'])
 const modalOpen = ref(false)
 const selectedAnalysis = ref(null)
 const comment = ref('')
+const pdfLoading = ref(null)
+
+async function generatePdf(a) {
+  pdfLoading.value = a.id
+  try {
+    const analisis = []
+
+    if (a.podometriaResult) {
+      const imgs = []
+      if (a.podometriaHuella)   imgs.push({ titulo: 'Huella plantar', base64: a.podometriaHuella.replace(/^data:image\/\w+;base64,/, '') })
+      if (a.podometriaDebugImg) imgs.push({ titulo: 'Podometría', base64: a.podometriaDebugImg.replace(/^data:image\/\w+;base64,/, '') })
+      const arr = Array.isArray(a.podometriaResult) ? a.podometriaResult : [a.podometriaResult]
+      const metricas = arr.flatMap(r => [
+        r.lado ? `Pie ${r.lado} — Tipo: ${r.tipo}` : `Tipo de pie: ${r.tipo}`,
+        `Índice plantar: ${r.porcentajeX || ''}`,
+        r.X ? `Ancho X: ${r.X}` : null,
+        r.Y ? `Ancho Y: ${r.Y}` : null,
+      ].filter(Boolean))
+      const exp = arr.map(r => `${r.lado ? 'Pie ' + r.lado + ': ' : ''}${r.tipo}`).join(' | ')
+      analisis.push({ titulo: 'Podometría digital', explicacion: exp, metricas, imagenes: imgs })
+    }
+
+    if (a.frontalResult) {
+      const imgs = a.frontalDebugImg ? [{ titulo: 'Vista frontal', base64: a.frontalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({ titulo: 'Ángulo tibiofemoral (frontal)', explicacion: a.frontalResult.tipo || '', metricas: [`Ángulo: ${a.frontalResult.angulo}`], imagenes: imgs })
+    }
+
+    if (a.sagitalResult) {
+      const imgs = a.sagitalDebugImg ? [{ titulo: 'Vista sagital', base64: a.sagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({ titulo: 'Ángulo tibiofemoral (sagital)', explicacion: a.sagitalResult.tipo || '', metricas: [`Ángulo: ${a.sagitalResult.angulo}`], imagenes: imgs })
+    }
+
+    if (a.alineacionSagitalResult) {
+      const r = a.alineacionSagitalResult
+      const imgs = a.alineacionSagitalDebugImg ? [{ titulo: 'Alineación sagital', base64: a.alineacionSagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({
+        titulo: 'Alineación vertical sagital',
+        explicacion: r.tipo || '',
+        metricas: [
+          `Desviación hombro: ${r.hombro != null ? r.hombro + '%' : 'N/A'}`,
+          `Desviación oreja: ${r.oreja != null ? r.oreja + '%' : 'N/A'}`,
+          `Lado evaluado: ${r.lado || ''}`,
+        ],
+        imagenes: imgs,
+      })
+    }
+
+    if (a.alineacionFrontalResult) {
+      const r = a.alineacionFrontalResult
+      const imgs = a.alineacionFrontalDebugImg ? [{ titulo: 'Alineación frontal', base64: a.alineacionFrontalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({
+        titulo: 'Alineación vertical frontal',
+        explicacion: r.tipo || '',
+        metricas: [`Desviación nariz: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`],
+        imagenes: imgs,
+      })
+    }
+
+    if (a.miofascialResult) {
+      const arr = Array.isArray(a.miofascialResult) ? a.miofascialResult : [a.miofascialResult]
+      const m = arr[0]
+      const imgs = a.miofascialDebugImg ? [{ titulo: 'Miofascial', base64: a.miofascialDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({
+        titulo: 'Cadena miofascial',
+        tipo: m?.tipo || '',
+        explicacion: m?.explicacion || '',
+        metricas: m?.rasgos || [],
+        rasgos_detallados: m?.rasgos_detallados || [],
+        porcentaje: m?.porcentaje ?? 0,
+        imagenes: imgs,
+      })
+    }
+
+    const reportData = {
+      paciente: {
+        nombre: props.patient?.nombre || 'Paciente',
+        edad: props.patient?.edad ?? null,
+        sexo: props.patient?.sexo ?? null,
+      },
+      fecha: a.fecha,
+      analisis,
+    }
+    if (a.miofascialImagenOriginal) reportData.imagen_original = a.miofascialImagenOriginal
+
+    const res = await fetch('http://127.0.0.1:8000/generate-report/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reportData),
+    })
+    if (!res.ok) throw new Error('Error al generar el PDF')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Reporte_${props.patient?.nombre || 'Paciente'}_${a.fecha}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  } catch {
+    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el PDF. Asegúrate de que la API Python esté corriendo.' })
+  } finally {
+    pdfLoading.value = null
+  }
+}
 
 const TYPE_MAP = {
   'Podometría digital': { bg: '#eff6ff', fg: '#2563eb', emoji: '🦶' },
@@ -219,4 +339,40 @@ function saveComment() {
   box-shadow: 0 0 0 3px var(--primary-ring);
 }
 .modal-textarea::placeholder { color: var(--text-subtle); }
+
+.pdf-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid #dc2626;
+  background: #fff5f5;
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+}
+.pdf-btn:hover:not(:disabled) {
+  background: #dc2626;
+  color: #fff;
+}
+.pdf-btn:disabled,
+.pdf-btn-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #dc2626;
+  color: #fff;
+}
+.spinner {
+  border-radius: 50%;
+  border-style: solid;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
