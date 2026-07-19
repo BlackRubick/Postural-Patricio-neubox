@@ -496,7 +496,7 @@ async function handleFileChange(e) {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!props.initial) {
     const checks = [
       analisisState.value.podometria.result,
@@ -523,6 +523,11 @@ function handleSubmit() {
   }
   const st = analisisState.value
   const id = form.value.id || Date.now()
+
+  Swal.fire({ title: 'Guardando análisis...', allowOutsideClick: false, didOpen: () => Swal.showLoading() })
+
+  const compressed = await compressAnalisisState(st)
+
   emit('save', {
     tipoTest: form.value.tipoTest,
     fecha: form.value.fecha,
@@ -530,22 +535,67 @@ function handleSubmit() {
     id,
     pdfUrl: null,
     podometriaResult: st.podometria.result ?? null,
-    podometriaDebugImg: st.podometria.debugImg ?? null,
-    podometriaHuella: st.podometria.huella ?? null,
+    podometriaDebugImg: compressed.podometriaDebugImg ?? null,
+    podometriaHuella: compressed.podometriaHuella ?? null,
     frontalResult: st.frontal.result ?? null,
-    frontalDebugImg: st.frontal.debugImg ?? null,
+    frontalDebugImg: compressed.frontalDebugImg ?? null,
     sagitalResult: st.sagital.result ?? null,
-    sagitalDebugImg: st.sagital.debugImg ?? null,
+    sagitalDebugImg: compressed.sagitalDebugImg ?? null,
     alineacionSagitalResult: st.alineacionSagital.result ?? null,
-    alineacionSagitalDebugImg: st.alineacionSagital.debugImg ?? null,
+    alineacionSagitalDebugImg: compressed.alineacionSagitalDebugImg ?? null,
     alineacionFrontalResult: st.alineacionFrontal.result ?? null,
-    alineacionFrontalDebugImg: st.alineacionFrontal.debugImg ?? null,
+    alineacionFrontalDebugImg: compressed.alineacionFrontalDebugImg ?? null,
     miofascialResult: st.miofascial.result ?? null,
-    miofascialDebugImg: st.miofascial.debugImg ?? null,
-    miofascialImagenOriginal: st.miofascial.imagen_original ?? null,
+    miofascialDebugImg: compressed.miofascialDebugImg ?? null,
+    miofascialImagenOriginal: compressed.miofascialImagenOriginal ?? null,
   })
   Swal.fire({ icon: 'success', title: props.initial ? 'Análisis actualizado' : 'Análisis guardado', timer: 1600, showConfirmButton: false })
   generateAndDownloadPdf(id)
+}
+
+function compressBase64Image(src, maxWidth = 800, quality = 0.72) {
+  if (!src) return Promise.resolve(src)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width  = Math.round(img.width  * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => resolve(src)
+    img.src = src.startsWith('data:') ? src : `data:image/jpeg;base64,${src}`
+  })
+}
+
+async function compressAnalisisState(st) {
+  const [
+    podDebug, podHuella,
+    frontalDebug, sagitalDebug,
+    alinSagDebug, alinFronDebug,
+    miofDebug, miofOrig,
+  ] = await Promise.all([
+    compressBase64Image(st.podometria.debugImg),
+    compressBase64Image(st.podometria.huella),
+    compressBase64Image(st.frontal.debugImg),
+    compressBase64Image(st.sagital.debugImg),
+    compressBase64Image(st.alineacionSagital.debugImg),
+    compressBase64Image(st.alineacionFrontal.debugImg),
+    compressBase64Image(st.miofascial.debugImg),
+    compressBase64Image(st.miofascial.imagen_original),
+  ])
+  return {
+    podometriaDebugImg: podDebug,
+    podometriaHuella: podHuella,
+    frontalDebugImg: frontalDebug,
+    sagitalDebugImg: sagitalDebug,
+    alineacionSagitalDebugImg: alinSagDebug,
+    alineacionFrontalDebugImg: alinFronDebug,
+    miofascialDebugImg: miofDebug,
+    miofascialImagenOriginal: miofOrig,
+  }
 }
 
 function generateAndDownloadPdf(analysisId) {
