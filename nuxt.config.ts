@@ -32,6 +32,10 @@ export default defineNuxtConfig({
     },
   },
 
+  nitro: {
+    maxBodySize: 150 * 1024 * 1024,
+  },
+
   runtimeConfig: {
     jwtSecret: process.env.JWT_SECRET || 'nexo-postural-secret-key-2024-cesar',
   },

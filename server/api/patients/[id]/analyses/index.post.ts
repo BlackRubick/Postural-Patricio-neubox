@@ -3,6 +3,7 @@ import { prisma } from '~/server/utils/prisma'
 export default defineEventHandler(async (event) => {
   const patientId = Number(getRouterParam(event, 'id'))
   const body = await readBody(event)
+  await prisma.$executeRawUnsafe('SET SESSION max_allowed_packet = 134217728')
   return prisma.analysis.create({
     data: {
       patientId,
