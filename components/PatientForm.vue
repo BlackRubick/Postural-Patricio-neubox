@@ -61,6 +61,20 @@
               </div>
             </div>
 
+            <!-- Estatura -->
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Estatura (cm) <span class="font-normal text-gray-400">— opcional</span></label>
+              <input
+                v-model="form.altura"
+                type="number"
+                min="50"
+                max="250"
+                step="0.5"
+                placeholder="Ej. 170"
+                class="form-input"
+              />
+            </div>
+
             <!-- Consentimiento -->
             <div class="consent-box rounded-xl p-4 mt-1">
               <label class="flex items-start gap-3 cursor-pointer select-none">
@@ -155,8 +169,8 @@ const emit = defineEmits(['save', 'cancel'])
 
 const form = ref(
   props.initial
-    ? { nombre: props.initial.nombre, edad: props.initial.edad, sexo: props.initial.sexo }
-    : { nombre: '', edad: '', sexo: '' }
+    ? { nombre: props.initial.nombre, edad: props.initial.edad, sexo: props.initial.sexo, altura: props.initial.altura ?? '' }
+    : { nombre: '', edad: '', sexo: '', altura: '' }
 )
 const consent = ref(false)
 const modalOpen = ref(false)

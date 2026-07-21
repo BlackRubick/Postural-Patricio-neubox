@@ -68,6 +68,29 @@
         </div>
       </div>
 
+      <!-- Miofascial: 3 image uploads for frontal and posterior (sagital is handled below) -->
+      <div v-if="step === 5" class="mio-extra-images">
+        <p class="mio-extra-label">Imagen frontal (opcional)</p>
+        <div class="upload-zone" :class="{ uploaded: !!form.miofascialFrontalImg }" style="margin-bottom:0.75rem">
+          <input type="file" accept="image/*" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialFrontalImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_frontal = ev.target.result }; r.readAsDataURL(f) } }" />
+          <div class="upload-icon">
+            <svg v-if="!form.miofascialFrontalImg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg v-else width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialFrontalImg ? 'Frontal lista' : 'Subir foto frontal' }}</p>
+        </div>
+        <p class="mio-extra-label">Imagen posterior / espaldas (opcional)</p>
+        <div class="upload-zone" :class="{ uploaded: !!form.miofascialPosteriorImg }" style="margin-bottom:0.75rem">
+          <input type="file" accept="image/*" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialPosteriorImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_posterior = ev.target.result }; r.readAsDataURL(f) } }" />
+          <div class="upload-icon">
+            <svg v-if="!form.miofascialPosteriorImg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg v-else width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialPosteriorImg ? 'Posterior lista' : 'Subir foto posterior/espaldas' }}</p>
+        </div>
+        <p class="mio-extra-label">Imagen sagital — <strong>requerida para el análisis</strong></p>
+      </div>
+
       <!-- Capture method tabs -->
       <div class="capture-tabs">
         <button
@@ -157,12 +180,14 @@
           </div>
         </template>
 
-        <!-- Alineación frontal (paso 4) -->
+        <!-- Vertical de Barré (paso 4) -->
         <template v-if="step === 4 && analisisState.alineacionFrontal.result">
           <div class="result-row">
-            <div class="result-chip">Clasificación: <strong>{{ analisisState.alineacionFrontal.result.tipo }}</strong></div>
-            <div class="result-chip">Desviación nariz: <strong>{{ analisisState.alineacionFrontal.result.nariz }}%</strong></div>
+            <div class="result-chip">Tipo Barré: <strong>{{ analisisState.alineacionFrontal.result.tipo }}</strong></div>
+            <div class="result-chip" v-if="analisisState.alineacionFrontal.result.clasificacion">Clasificación: <strong>{{ analisisState.alineacionFrontal.result.clasificacion }}</strong></div>
+            <div class="result-chip" v-if="analisisState.alineacionFrontal.result.nariz != null">Desviación: <strong>{{ analisisState.alineacionFrontal.result.nariz }}%</strong></div>
           </div>
+          <p v-if="analisisState.alineacionFrontal.result.descripcion" class="result-explanation">{{ analisisState.alineacionFrontal.result.descripcion }}</p>
         </template>
 
         <!-- Miofascial (paso 5) — rasgos con palomitas + porcentaje -->
@@ -229,6 +254,17 @@
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/></svg>
           Foto capturada correctamente
         </div>
+      </div>
+
+      <!-- Notas del análisis (último paso) -->
+      <div v-if="step === LAST_STEP" class="notas-section">
+        <label class="notas-label">Observaciones / notas clínicas <span style="font-weight:400;color:var(--text-subtle)">(opcional)</span></label>
+        <textarea
+          v-model="form.notas"
+          rows="3"
+          placeholder="Escribe aquí las observaciones del análisis..."
+          class="notas-input"
+        ></textarea>
       </div>
 
       <!-- Action row -->
@@ -301,7 +337,7 @@ const STEPS = [
   { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
   { short: 'Sagital',      emoji: '📐', color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
   { short: 'Alin. Sagital',emoji: '📏', color: '#f0f9ff', endpoint: 'http://127.0.0.1:8000/analyze-alignment/sagittal/' },
-  { short: 'Alin. Frontal',emoji: '⬆️', color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
+  { short: 'V. de Barré',  emoji: '⬆️', color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
   { short: 'Miofascial',   emoji: '💪', color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
 ]
 
@@ -318,8 +354,11 @@ const form = ref({
   tibiofemoralSagital: null,
   alineacionSagitalImg: null,
   alineacionFrontalImg: null,
-  miofascialImg: null,
+  miofascialFrontalImg: null,
+  miofascialPosteriorImg: null,
+  miofascialSagitalImg: null,
   tomarFoto: false,
+  notas: '',
 })
 
 const availableCameras = ref([])
@@ -342,7 +381,7 @@ const analisisState = ref({
   sagital:           { result: null, debugImg: null },
   alineacionSagital: { result: null, debugImg: null },
   alineacionFrontal: { result: null, debugImg: null },
-  miofascial:        { result: null, debugImg: null, imagen_original: null },
+  miofascial:        { result: null, debugImg: null, imagen_original: null, imagen_frontal: null, imagen_posterior: null },
 })
 
 const LAST_STEP = STEPS.length - 1
@@ -353,7 +392,7 @@ const uploadKey = computed(() => {
   if (step.value === 2) return 'tibiofemoralSagital'
   if (step.value === 3) return 'alineacionSagitalImg'
   if (step.value === 4) return 'alineacionFrontalImg'
-  return 'miofascialImg'
+  return 'miofascialSagitalImg'
 })
 
 const stepTitle = computed(() => {
@@ -362,7 +401,7 @@ const stepTitle = computed(() => {
     'Ángulo tibiofemoral (Frontal)',
     'Ángulo tibiofemoral (Sagital)',
     'Alineación vertical sagital',
-    'Alineación vertical frontal',
+    'Vertical de Barré',
     'Cadena miofascial',
   ]
   return props.initial ? 'Editar Test' : t[step.value]
@@ -374,8 +413,8 @@ const stepSubtitle = computed(() => {
     'Sube o toma la foto de la vista frontal (rodilla)',
     'Sube o toma la foto de la vista sagital (rodilla)',
     'Vista lateral — línea vertical desde el tobillo',
-    'Vista frontal — línea vertical por el centro del cuerpo',
-    'Sube la foto postural para análisis de cadena miofascial',
+    'Vista posterior (de espaldas) — línea vertical de Barré',
+    'Sube 3 fotos posturales (frontal, posterior y sagital) para el análisis de cadena miofascial',
   ]
   return s[step.value]
 })
@@ -396,7 +435,7 @@ const isNextDisabled = computed(() => {
   if (step.value === 2) return !form.value.tibiofemoralSagital
   if (step.value === 3) return !form.value.alineacionSagitalImg
   if (step.value === 4) return !form.value.alineacionFrontalImg
-  if (step.value === 5) return !form.value.miofascialImg
+  if (step.value === 5) return !form.value.miofascialSagitalImg
   return false
 })
 
@@ -417,6 +456,8 @@ async function handleFileChange(e) {
   const label = STEPS[s]?.short || 'imagen'
   const fd = new FormData()
   fd.append('file', files[0])
+  if (s === 5 && form.value.miofascialFrontalImg) fd.append('file_frontal', form.value.miofascialFrontalImg)
+  if (s === 5 && form.value.miofascialPosteriorImg) fd.append('file_posterior', form.value.miofascialPosteriorImg)
   if (s === 0) {
     fd.append('binarization_type', binarizationType.value)
     fd.append('adaptive_c', adaptiveC.value.toString())
@@ -473,7 +514,11 @@ async function handleFileChange(e) {
       ok = true
       analisisState.value.alineacionFrontal.result = {
         tipo: data.metrics.classification,
+        clasificacion: data.metrics.barre_class ?? null,
+        descripcion: data.metrics.barre_description ?? null,
         nariz: data.metrics.nose_deviation_pct,
+        inferior_dev: data.metrics.inferior_deviation_pct ?? null,
+        superior_dev: data.metrics.superior_deviation_pct ?? null,
       }
       if (data.images?.annotated) { analisisState.value.alineacionFrontal.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
     } else if (s === 5 && (data?.chain || data?.explanation || data?.rasgos)) {
@@ -486,6 +531,8 @@ async function handleFileChange(e) {
         porcentaje: data.porcentaje ?? 0,
       }]
       if (data.imagen_original) analisisState.value.miofascial.imagen_original = data.imagen_original
+      if (data.imagen_frontal) analisisState.value.miofascial.imagen_frontal = data.imagen_frontal
+      if (data.imagen_posterior) analisisState.value.miofascial.imagen_posterior = data.imagen_posterior
       if (data.images?.annotated) { analisisState.value.miofascial.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
     }
     if (!ok) Swal.fire({ icon: 'error', title: 'Sin datos válidos', text: `El servidor no devolvió datos reconocibles para ${label}.` })
@@ -517,8 +564,8 @@ async function handleSubmit() {
     pieBinImg.value = null
     return
   }
-  if (!form.value.miofascialImg) {
-    Swal.fire({ icon: 'warning', title: 'Falta imagen', text: 'Sube la imagen para la cadena miofascial.' })
+  if (!form.value.miofascialSagitalImg) {
+    Swal.fire({ icon: 'warning', title: 'Falta imagen', text: 'Sube al menos la imagen sagital para la cadena miofascial.' })
     return
   }
   const st = analisisState.value
@@ -534,6 +581,7 @@ async function handleSubmit() {
     completado: form.value.completado,
     id,
     pdfUrl: null,
+    notas: form.value.notas || null,
     podometriaResult: st.podometria.result ?? null,
     podometriaDebugImg: compressed.podometriaDebugImg ?? null,
     podometriaHuella: compressed.podometriaHuella ?? null,
@@ -548,6 +596,8 @@ async function handleSubmit() {
     miofascialResult: st.miofascial.result ?? null,
     miofascialDebugImg: compressed.miofascialDebugImg ?? null,
     miofascialImagenOriginal: compressed.miofascialImagenOriginal ?? null,
+    miofascialFrontalImg: compressed.miofascialFrontalImg ?? null,
+    miofascialPosteriorImg: compressed.miofascialPosteriorImg ?? null,
   })
   Swal.fire({ icon: 'success', title: props.initial ? 'Análisis actualizado' : 'Análisis guardado', timer: 1600, showConfirmButton: false })
   generateAndDownloadPdf(id)
@@ -575,7 +625,7 @@ async function compressAnalisisState(st) {
     podDebug, podHuella,
     frontalDebug, sagitalDebug,
     alinSagDebug, alinFronDebug,
-    miofDebug, miofOrig,
+    miofDebug, miofOrig, miofFrontal, miofPosterior,
   ] = await Promise.all([
     compressBase64Image(st.podometria.debugImg),
     compressBase64Image(st.podometria.huella),
@@ -585,6 +635,8 @@ async function compressAnalisisState(st) {
     compressBase64Image(st.alineacionFrontal.debugImg),
     compressBase64Image(st.miofascial.debugImg),
     compressBase64Image(st.miofascial.imagen_original),
+    compressBase64Image(st.miofascial.imagen_frontal),
+    compressBase64Image(st.miofascial.imagen_posterior),
   ])
   return {
     podometriaDebugImg: podDebug,
@@ -595,6 +647,8 @@ async function compressAnalisisState(st) {
     alineacionFrontalDebugImg: alinFronDebug,
     miofascialDebugImg: miofDebug,
     miofascialImagenOriginal: miofOrig,
+    miofascialFrontalImg: miofFrontal,
+    miofascialPosteriorImg: miofPosterior,
   }
 }
 
@@ -643,18 +697,23 @@ function generateAndDownloadPdf(analysisId) {
 
   if (st.alineacionFrontal.result) {
     const r = st.alineacionFrontal.result
-    const imgs = st.alineacionFrontal.debugImg ? [{ titulo: 'Alineación frontal', base64: st.alineacionFrontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const imgs = st.alineacionFrontal.debugImg ? [{ titulo: 'Vertical de Barré', base64: st.alineacionFrontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const metricas = [`Desviación: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`]
+    if (r.inferior_dev != null) metricas.push(`Tren inferior: ${r.inferior_dev}%`)
+    if (r.superior_dev != null) metricas.push(`Tren superior: ${r.superior_dev}%`)
     analisis.push({
-      titulo: 'Alineación vertical frontal',
-      explicacion: r.tipo || '',
-      metricas: [`Desviación nariz: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`],
+      titulo: 'Vertical de Barré',
+      explicacion: r.descripcion || r.tipo || '',
+      metricas,
       imagenes: imgs,
+      barre_class: r.clasificacion || null,
     })
   }
 
   if (st.miofascial.result) {
     const m = st.miofascial.result[0]
-    const imgs = st.miofascial.debugImg ? [{ titulo: 'Miofascial', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const imgs = []
+    if (st.miofascial.debugImg)    imgs.push({ titulo: 'Cadena miofascial (sagital)', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') })
     analisis.push({
       titulo: 'Cadena miofascial',
       tipo: m?.tipo || '',
@@ -672,11 +731,15 @@ function generateAndDownloadPdf(analysisId) {
       nombre: patient?.nombre || 'Paciente',
       edad: patient?.edad ?? null,
       sexo: patient?.sexo ?? null,
+      altura: patient?.altura ?? null,
     },
     fecha: form.value.fecha,
+    notas: form.value.notas || null,
     analisis,
   }
   if (st.miofascial.imagen_original) reportData.imagen_original = st.miofascial.imagen_original
+  if (st.miofascial.imagen_frontal)  reportData.imagen_frontal = st.miofascial.imagen_frontal
+  if (st.miofascial.imagen_posterior) reportData.imagen_posterior = st.miofascial.imagen_posterior
 
   fetch('http://127.0.0.1:8000/generate-report/', {
     method: 'POST',
@@ -1118,5 +1181,49 @@ function handleCapture() {
   object-fit: cover;
   display: block;
   margin-bottom: 1rem;
+}
+
+/* Miofascial 3 images */
+.mio-extra-images {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.mio-extra-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* Notas */
+.notas-section {
+  margin-bottom: 1rem;
+}
+.notas-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.notas-input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--text-base);
+  background: var(--surface-3);
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.notas-input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
 }
 </style>

@@ -22,6 +22,7 @@ model Patient {
   nombre    String
   edad      Int
   sexo      String
+  altura    Float?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   analyses  Analysis[]
@@ -55,6 +56,10 @@ model Analysis {
   alineacionSagitalDebugImg String? @db.LongText
   alineacionFrontalResult   Json?
   alineacionFrontalDebugImg String? @db.LongText
+
+  notas                  String?  @db.Text
+  miofascialFrontalImg   String?  @db.LongText
+  miofascialPosteriorImg String?  @db.LongText
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

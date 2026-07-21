@@ -183,19 +183,24 @@ async function generatePdf(a) {
 
     if (a.alineacionFrontalResult) {
       const r = a.alineacionFrontalResult
-      const imgs = a.alineacionFrontalDebugImg ? [{ titulo: 'Alineación frontal', base64: a.alineacionFrontalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      const imgs = a.alineacionFrontalDebugImg ? [{ titulo: 'Vertical de Barré', base64: a.alineacionFrontalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      const metricas = [`Desviación: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`]
+      if (r.inferior_dev != null) metricas.push(`Tren inferior: ${r.inferior_dev}%`)
+      if (r.superior_dev != null) metricas.push(`Tren superior: ${r.superior_dev}%`)
       analisis.push({
-        titulo: 'Alineación vertical frontal',
-        explicacion: r.tipo || '',
-        metricas: [`Desviación nariz: ${r.nariz != null ? r.nariz + '%' : 'N/A'}`],
+        titulo: 'Vertical de Barré',
+        explicacion: r.descripcion || r.tipo || '',
+        metricas,
         imagenes: imgs,
+        barre_class: r.clasificacion || null,
       })
     }
 
     if (a.miofascialResult) {
       const arr = Array.isArray(a.miofascialResult) ? a.miofascialResult : [a.miofascialResult]
       const m = arr[0]
-      const imgs = a.miofascialDebugImg ? [{ titulo: 'Miofascial', base64: a.miofascialDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      const imgs = []
+      if (a.miofascialDebugImg) imgs.push({ titulo: 'Cadena miofascial (sagital)', base64: a.miofascialDebugImg.replace(/^data:image\/\w+;base64,/, '') })
       analisis.push({
         titulo: 'Cadena miofascial',
         tipo: m?.tipo || '',
@@ -212,11 +217,15 @@ async function generatePdf(a) {
         nombre: props.patient?.nombre || 'Paciente',
         edad: props.patient?.edad ?? null,
         sexo: props.patient?.sexo ?? null,
+        altura: props.patient?.altura ?? null,
       },
       fecha: a.fecha,
+      notas: a.notas || null,
       analisis,
     }
     if (a.miofascialImagenOriginal) reportData.imagen_original = a.miofascialImagenOriginal
+    if (a.miofascialFrontalImg)     reportData.imagen_frontal   = a.miofascialFrontalImg
+    if (a.miofascialPosteriorImg)   reportData.imagen_posterior = a.miofascialPosteriorImg
 
     const res = await fetch('http://127.0.0.1:8000/generate-report/', {
       method: 'POST',

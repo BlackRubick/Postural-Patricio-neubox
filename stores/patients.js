@@ -17,7 +17,7 @@ export const usePatientsStore = defineStore('patients', () => {
   async function addPatient(data) {
     const created = await $fetch('/api/patients', {
       method: 'POST',
-      body: { nombre: data.nombre, edad: data.edad, sexo: data.sexo },
+      body: { nombre: data.nombre, edad: data.edad, sexo: data.sexo, altura: data.altura ?? null },
     })
     patients.value.unshift(created)
     return created
@@ -26,7 +26,7 @@ export const usePatientsStore = defineStore('patients', () => {
   async function updatePatient(id, data) {
     const updated = await $fetch(`/api/patients/${id}`, {
       method: 'PUT',
-      body: { nombre: data.nombre, edad: data.edad, sexo: data.sexo },
+      body: { nombre: data.nombre, edad: data.edad, sexo: data.sexo, altura: data.altura ?? null },
     })
     const idx = patients.value.findIndex(p => p.id === id)
     if (idx !== -1) patients.value[idx] = updated
@@ -59,6 +59,9 @@ export const usePatientsStore = defineStore('patients', () => {
         alineacionSagitalDebugImg: data.alineacionSagitalDebugImg ?? null,
         alineacionFrontalResult: data.alineacionFrontalResult ?? null,
         alineacionFrontalDebugImg: data.alineacionFrontalDebugImg ?? null,
+        notas: data.notas ?? null,
+        miofascialFrontalImg: data.miofascialFrontalImg ?? null,
+        miofascialPosteriorImg: data.miofascialPosteriorImg ?? null,
       },
     })
     const patient = patients.value.find(p => p.id === patientId)
@@ -91,6 +94,9 @@ export const usePatientsStore = defineStore('patients', () => {
         alineacionSagitalDebugImg: data.alineacionSagitalDebugImg ?? null,
         alineacionFrontalResult: data.alineacionFrontalResult ?? null,
         alineacionFrontalDebugImg: data.alineacionFrontalDebugImg ?? null,
+        notas: data.notas ?? null,
+        miofascialFrontalImg: data.miofascialFrontalImg ?? null,
+        miofascialPosteriorImg: data.miofascialPosteriorImg ?? null,
       },
     })
     const patient = patients.value.find(p => p.id === patientId)

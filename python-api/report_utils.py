@@ -99,11 +99,15 @@ def draw_patient_card(c, y, paciente, fecha, width):
     c.setFont("Helvetica", 11)
     c.drawString(MARGIN_L + 230, y - 30, fecha)
 
-    extras = [("edad", "Edad"), ("sexo", "Sexo"), ("id", "ID")]
+    extras = [("edad", "Edad"), ("sexo", "Sexo"), ("altura", "Estatura"), ("id", "ID")]
     ex_x = MARGIN_L + 16
     c.setFillColor(TEXT_MID)
     c.setFont("Helvetica", 8.5)
-    extra_parts = [f"{label}: {paciente.get(key)}" for key, label in extras if paciente.get(key)]
+    extra_parts = []
+    for key, label in extras:
+        val = paciente.get(key)
+        if val is not None:
+            extra_parts.append(f"{label}: {val}{' cm' if key == 'altura' else ''}")
     if extra_parts:
         c.drawString(ex_x, y - 46, "  ·  ".join(extra_parts))
 
@@ -264,6 +268,204 @@ def _draw_image_block(c, y, width, height, page_num, img_b64, titulo):
     return y, page_num
 
 
+def draw_conclusions_page(c, width, height, analisis, paciente, fecha, page_num=99):
+    """Página de conclusiones: resumen de todos los resultados sin imágenes."""
+    c.showPage()
+    draw_background(c, width, height)
+    draw_footer(c, width, page_num)
+    y = draw_header(c, width, height)
+    y -= 10
+
+    c.setFillColor(TEXT_DARK)
+    c.setFont("Helvetica-Bold", 15)
+    c.drawString(MARGIN_L, y, "Resumen de Conclusiones")
+    c.setFillColor(GOLD)
+    c.rect(MARGIN_L, y - 5, 50, 2, fill=1, stroke=0)
+    y -= 26
+
+    c.setFillColor(TEXT_MID)
+    c.setFont("Helvetica", 8.5)
+    c.drawString(MARGIN_L, y, f"Paciente: {paciente.get('nombre', 'N/A')}  ·  Fecha: {fecha}")
+    y -= 22
+
+    c.setStrokeColor(DIVIDER)
+    c.setLineWidth(0.5)
+    c.line(MARGIN_L, y, width - MARGIN_R, y)
+    y -= 16
+
+    for bloque in analisis:
+        if y < 80:
+            break
+        titulo = bloque.get("titulo", "")
+        explicacion = bloque.get("explicacion", "")
+
+        c.setFillColor(ACCENT_LIGHT)
+        c.roundRect(MARGIN_L, y - 4, COL_WIDTH, 22, 3, fill=1, stroke=0)
+        c.setFillColor(ACCENT)
+        c.rect(MARGIN_L, y - 4, 4, 22, fill=1, stroke=0)
+        c.setFillColor(PRIMARY)
+        c.setFont("Helvetica-Bold", 9.5)
+        c.drawString(MARGIN_L + 12, y + 7, titulo.upper())
+        y -= 30
+
+        if bloque.get("barre_class"):
+            c.setFillColor(GOLD)
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(MARGIN_L + 16, y, f"Clasificación Barré: {bloque['barre_class']}")
+            y -= 16
+        elif explicacion:
+            max_chars = 100
+            exp = explicacion[:max_chars] + ("…" if len(explicacion) > max_chars else "")
+            c.setFillColor(TEXT_MID)
+            c.setFont("Helvetica", 8.5)
+            c.drawString(MARGIN_L + 16, y, exp)
+            y -= 16
+
+        metricas = bloque.get("metricas", [])
+        if isinstance(metricas, list) and metricas and not ("cadena" in titulo.lower()):
+            c.setFillColor(TEXT_DARK)
+            c.setFont("Helvetica", 8)
+            met_text = "  ·  ".join(str(m) for m in metricas[:3])
+            c.drawString(MARGIN_L + 16, y, met_text)
+            y -= 14
+
+        if "cadena" in titulo.lower():
+            pct = bloque.get("porcentaje", 0)
+            c.setFillColor(TEXT_DARK)
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(MARGIN_L + 16, y, f"Tipo: {bloque.get('tipo', '')}  ·  Coincidencia: {pct:.0f}%")
+            y -= 14
+
+        y -= 6
+
+
+def draw_notas_section(c, y, width, height, page_num, notas):
+    """Dibuja la sección de notas/observaciones."""
+    if not notas or not notas.strip():
+        return y, page_num
+
+    if y < 120:
+        page_num += 1
+        y = new_page(c, width, height, page_num)
+        y -= 10
+
+    c.setFillColor(colors.HexColor("#FFFBEB"))
+    c.roundRect(MARGIN_L, y - 4, COL_WIDTH, 20, 3, fill=1, stroke=0)
+    c.setFillColor(GOLD)
+    c.rect(MARGIN_L, y - 4, 4, 20, fill=1, stroke=0)
+    c.setFillColor(PRIMARY)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(MARGIN_L + 12, y + 6, "OBSERVACIONES CLÍNICAS")
+    y -= 28
+
+    words = notas.split()
+    line = ""
+    line_h = 13
+    max_width_chars = 95
+    c.setFillColor(TEXT_DARK)
+    c.setFont("Helvetica", 8.5)
+    for word in words:
+        test = (line + " " + word).strip()
+        if len(test) > max_width_chars:
+            if y < 80:
+                page_num += 1
+                y = new_page(c, width, height, page_num)
+                y -= 10
+            c.drawString(MARGIN_L + 16, y, line)
+            y -= line_h
+            line = word
+        else:
+            line = test
+    if line:
+        c.drawString(MARGIN_L + 16, y, line)
+        y -= line_h
+    y -= 10
+    return y, page_num
+
+
+def draw_consent_page(c, width, height, page_num=99):
+    """Última página: hoja de consentimiento informado."""
+    c.showPage()
+    draw_background(c, width, height)
+    draw_footer(c, width, page_num)
+    y = draw_header(c, width, height)
+    y -= 10
+
+    c.setFillColor(TEXT_DARK)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(MARGIN_L, y, "Carta de Consentimiento Informado y Aviso de Privacidad")
+    c.setFillColor(GOLD)
+    c.rect(MARGIN_L, y - 5, 60, 2, fill=1, stroke=0)
+    y -= 28
+
+    c.setFillColor(ACCENT)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawCentredString(width / 2, y, "Proyecto: NEXO-POSTURAL: Kyene'is Pøndyam")
+    y -= 22
+
+    sections = [
+        ("I. IDENTIDAD Y DOMICILIO DEL RESPONSABLE",
+         "El proyecto NEXO-POSTURAL, bajo la responsabilidad de Liliana Ruiz Alvarado y Ángel Enrique Patricio López, "
+         "con domicilio en la Universidad Politécnica de Chiapas, es responsable del uso, tratamiento y protección "
+         "de sus datos personales."),
+        ("II. DATOS PERSONALES Y SENSIBLES",
+         "Se recabarán: nombre completo, fecha de nacimiento, sexo, estatura y peso. También datos sensibles como "
+         "imágenes biométricas (registro fotográfico para detección de puntos anatómicos corporales) e información "
+         "de salud (antecedentes médicos y diagnósticos derivados del estudio)."),
+        ("III. FINALIDAD",
+         "Los datos serán usados exclusivamente para análisis postural y generación de diagnósticos médicos "
+         "relacionados con NEXO-POSTURAL."),
+        ("IV. DERECHOS ARCO Y CONFIDENCIALIDAD",
+         "Tiene derecho a conocer, corregir o cancelar sus datos. Por NOM-004-SSA3-2012, los expedientes se "
+         "conservan mínimo 5 años. Sus datos no serán divulgados y en investigación no podrá ser identificado."),
+        ("V. DECLARACIÓN DE CONSENTIMIENTO",
+         "Al aceptar, autoriza al personal de NEXO-POSTURAL para la realización de diagnósticos biomecánicos y "
+         "el tratamiento de sus datos personales conforme a este aviso."),
+    ]
+
+    for title, body in sections:
+        if y < 100:
+            break
+        c.setFillColor(PRIMARY)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(MARGIN_L, y, title)
+        y -= 14
+
+        words = body.split()
+        line = ""
+        for word in words:
+            test = (line + " " + word).strip()
+            if len(test) > 95:
+                c.setFillColor(TEXT_MID)
+                c.setFont("Helvetica", 8.5)
+                c.drawString(MARGIN_L + 12, y, line)
+                y -= 12
+                line = word
+            else:
+                line = test
+        if line:
+            c.setFillColor(TEXT_MID)
+            c.setFont("Helvetica", 8.5)
+            c.drawString(MARGIN_L + 12, y, line)
+            y -= 12
+        y -= 10
+
+    # Firma
+    if y > 100:
+        y -= 20
+        c.setStrokeColor(DIVIDER)
+        c.setLineWidth(0.6)
+        sig_x = MARGIN_L + 40
+        c.line(sig_x, y, sig_x + 180, y)
+        y -= 14
+        c.setFillColor(TEXT_LIGHT)
+        c.setFont("Helvetica", 8)
+        c.drawString(sig_x, y, "Firma del paciente o tutor")
+        y -= 30
+        c.line(sig_x + 220, y + 16, sig_x + 420, y + 16)
+        c.drawString(sig_x + 220, y + 2, "Firma del profesional")
+
+
 # ─── FUNCIÓN PRINCIPAL ───────────────────────────────────────────────────────
 
 def generate_report_pdf(data):
@@ -303,6 +505,14 @@ def generate_report_pdf(data):
 
         titulo = bloque.get("titulo", "").lower()
         es_cadena = "cadena" in titulo
+        es_barre = "barré" in titulo or "barre" in titulo
+
+        # Barré classification badge
+        if es_barre and bloque.get("barre_class"):
+            c.setFillColor(GOLD)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(MARGIN_L + 16, y, f"Clasificación Barré: Tipo {bloque['barre_class']}")
+            y -= 20
 
         # Tipo de cadena destacado
         if es_cadena and bloque.get("tipo"):
@@ -370,14 +580,14 @@ def generate_report_pdf(data):
 
         y -= 10
 
-        # Imagen original de cadena miofascial
-        if es_cadena and data.get("imagen_original"):
-            if y < IMG_H + 60:
-                page_num += 1
-                y = new_page(c, width, height, page_num)
-                y -= 10
-            y, page_num = _draw_image_block(c, y, width, height, page_num,
-                                             data["imagen_original"], "Imagen original subida")
+        # Imágenes originales de cadena miofascial
+        if es_cadena:
+            for img_key, img_lbl in [("imagen_frontal", "Imagen frontal"),
+                                      ("imagen_posterior", "Imagen posterior/espaldas"),
+                                      ("imagen_original", "Imagen sagital")]:
+                if data.get(img_key):
+                    y, page_num = _draw_image_block(c, y, width, height, page_num,
+                                                     data[img_key], img_lbl)
 
         # Imágenes asociadas al bloque
         for img_dict in bloque.get("imagenes", []):
@@ -396,7 +606,12 @@ def generate_report_pdf(data):
         c.setDash()
         y -= 16
 
-    # Firma
+    # Notas clínicas
+    notas = data.get("notas", "")
+    if notas:
+        y, page_num = draw_notas_section(c, y, width, height, page_num, notas)
+
+    # Firma / cierre
     if y < 80:
         page_num += 1
         y = new_page(c, width, height, page_num)
@@ -411,6 +626,14 @@ def generate_report_pdf(data):
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(MARGIN_L, y, "Este documento fue generado automáticamente por Nexo Postural.")
     c.drawRightString(width - MARGIN_R, y, f"Total de análisis: {len(analisis)}")
+
+    # Página de conclusiones
+    page_num += 1
+    draw_conclusions_page(c, width, height, analisis, paciente, fecha, page_num)
+
+    # Página de consentimiento informado
+    page_num += 1
+    draw_consent_page(c, width, height, page_num)
 
     c.save()
     buffer.seek(0)

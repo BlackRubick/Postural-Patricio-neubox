@@ -269,13 +269,30 @@ def _detect_chain_traits(chain, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_
 # -------- ENDPOINTS --------
 
 @router.post("/analyze-muscle-chain/")
-def analyze_muscle_chain(file: UploadFile = File(...)):
+def analyze_muscle_chain(
+    file: UploadFile = File(...),
+    file_frontal: UploadFile = File(None),
+    file_posterior: UploadFile = File(None),
+):
     image_bytes = file.file.read()
     npimg = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
     if img is None:
         return JSONResponse(status_code=400, content={"error": "Imagen inválida"})
     img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+    frontal_b64 = None
+    if file_frontal:
+        fb = file_frontal.file.read()
+        if fb:
+            frontal_b64 = base64.b64encode(fb).decode('utf-8')
+
+    posterior_b64 = None
+    if file_posterior:
+        pb = file_posterior.file.read()
+        if pb:
+            posterior_b64 = base64.b64encode(pb).decode('utf-8')
+
     detector = PoseDetector()
     try:
         lm = detector.detect(img)
@@ -294,8 +311,8 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
         if any(np.isnan(a) for a in all_angles):
             raise ValueError("Ángulos inválidos (NaN)")
 
-        chain = "Indeterminada"
-        explanation = "No se pudo clasificar la cadena con los datos actuales."
+        chain = None
+        explanation = ""
 
         if all(a < 160 for a in all_angles):
             chain = "Cadena de espiración"
@@ -306,16 +323,30 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
         elif all(a > 175 for a in all_angles):
             chain = "Cadena de inspiración"
             explanation = "Postura global de apertura e inspiración (todos los ángulos grandes)."
-        elif all(a > 170 for a in all_main):
+        elif all(a > 165 for a in all_main):
             chain = "Cadena de extensión"
-            explanation = "Todas las articulaciones principales están en extensión."
-        elif (all(a > 170 for a in [ang_left_hip, ang_right_hip, ang_left_ankle, ang_right_ankle])
+            explanation = "Las articulaciones principales están en extensión."
+        elif (all(a > 165 for a in [ang_left_hip, ang_right_hip, ang_left_ankle, ang_right_ankle])
               and any(a < 170 for a in [ang_left_knee, ang_right_knee])):
             chain = "Cadena de apertura"
             explanation = "Caderas y tobillos en apertura, rodillas con ligera flexión."
         elif any(a < 160 for a in [ang_left_hip, ang_right_hip, ang_left_ankle, ang_right_ankle]):
             chain = "Cadena de cierre"
             explanation = "Caderas o tobillos en cierre (flexión o aducción marcada)."
+
+        # Fallback: pick chain with highest rasgo match
+        if chain is None:
+            best_chain = None
+            best_pct = -1
+            for c in CHAIN_TRAITS:
+                _, pct = _detect_chain_traits(c, lm, ang_left_knee, ang_right_knee,
+                                              ang_left_hip, ang_right_hip,
+                                              ang_left_ankle, ang_right_ankle)
+                if pct > best_pct:
+                    best_pct = pct
+                    best_chain = c
+            chain = best_chain or "Cadena de extensión"
+            explanation = f"Clasificación por rasgos dominantes ({best_pct:.0f}% de coincidencia)."
 
         rasgos_detallados, porcentaje = _detect_chain_traits(
             chain, lm,
@@ -346,6 +377,8 @@ def analyze_muscle_chain(file: UploadFile = File(...)):
             "left_ankle_angle":  ang_left_ankle,
             "right_ankle_angle": ang_right_ankle,
             "imagen_original": img_b64,
+            "imagen_frontal": frontal_b64,
+            "imagen_posterior": posterior_b64,
         }
     except Exception as e:
         import traceback
@@ -457,11 +490,19 @@ def analyze_alignment_sagittal(file: UploadFile = File(...)):
     }
 
 
-# -------- ALINEACIÓN FRONTAL --------
+# -------- VERTICAL DE BARRÉ --------
+
+_BARRE_DESCRIPTIONS = {
+    "A": "Tipo A — Tren inferior desviado: caderas/tobillos desviados lateralmente, tronco superior compensado.",
+    "B": "Tipo B — Tren superior desviado: hombros desviados lateralmente, tren inferior compensado.",
+    "C": "Tipo C — Compensado: tren inferior y tren superior se desvían en sentidos opuestos, compensándose.",
+    "D": "Tipo D — Neutro: sin desviación lateral significativa en ningún segmento corporal.",
+    "E": "Tipo E — Todo el cuerpo desviado: tren inferior y tren superior se desvían hacia el mismo lado.",
+}
 
 @router.post("/analyze-alignment/frontal/")
 def analyze_alignment_frontal(file: UploadFile = File(...)):
-    """Línea vertical por el centro del cuerpo — mide desviación de la nariz."""
+    """Vertical de Barré — clasifica desviación lateral en tipos A-E."""
     image_bytes = file.file.read()
     npimg = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
@@ -474,38 +515,70 @@ def analyze_alignment_frontal(file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    # Centro del cuerpo = punto medio de caderas
-    hip_center_x = (lm["left_hip"][0]  + lm["right_hip"][0])  // 2
+    # Reference line: midpoint of ankles (plumb line base)
+    ank_center_x = (lm["left_ankle"][0] + lm["right_ankle"][0]) // 2
     ank_center_y = (lm["left_ankle"][1] + lm["right_ankle"][1]) // 2
+    hip_center_x = (lm["left_hip"][0]  + lm["right_hip"][0])  // 2
+    sh_center_x  = (lm["left_shoulder"][0] + lm["right_shoulder"][0]) // 2
     nose = lm["nose"]
 
-    # Escala: ancho de hombros
+    # Scale: shoulder width
     sh_width = max(abs(lm["right_shoulder"][0] - lm["left_shoulder"][0]), 50)
 
-    nose_dev = nose[0] - hip_center_x
-    nose_dev_pct = (nose_dev / sh_width) * 100
+    # Deviations from the ankle plumb line (normalised by shoulder width → %)
+    inferior_dev = (hip_center_x - ank_center_x) / sh_width * 100   # hip vs ankle
+    superior_dev = (sh_center_x  - ank_center_x) / sh_width * 100   # shoulder vs ankle
+    nose_dev_pct = (nose[0]      - ank_center_x) / sh_width * 100   # nose vs ankle
 
     THRESH = 10.0
-    if abs(nose_dev_pct) < THRESH:
-        classification = "Normal"
-    elif nose_dev_pct > THRESH:
-        classification = "Desviación lateral derecha"
+
+    inf_sig = abs(inferior_dev) >= THRESH
+    sup_sig = abs(superior_dev) >= THRESH
+
+    if not inf_sig and not sup_sig:
+        barre_class = "D"
+    elif inf_sig and not sup_sig:
+        barre_class = "A"
+    elif sup_sig and not inf_sig:
+        barre_class = "B"
+    elif inf_sig and sup_sig:
+        # Same side or opposite?
+        if (inferior_dev > 0) == (superior_dev > 0):
+            barre_class = "E"
+        else:
+            barre_class = "C"
     else:
-        classification = "Desviación lateral izquierda"
+        barre_class = "D"
 
+    classification = f"Tipo {barre_class}"
+    barre_desc = _BARRE_DESCRIPTIONS[barre_class]
+
+    # Annotated image
     annotated = img.copy()
-    top_y = max(nose[1] - 30, 0)
-
-    # Línea vertical central
-    cv2.line(annotated, (hip_center_x, ank_center_y + 20), (hip_center_x, top_y), (200, 0, 200), 2)
-
-    # Nariz y desviación
-    cv2.circle(annotated, nose, 9, (0, 0, 255), -1)
-    cv2.line(annotated, (hip_center_x, nose[1]), (nose[0], nose[1]), (0, 0, 255), 2)
-
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(annotated, f"Nariz: {nose_dev_pct:+.1f}%", (nose[0] + 10, nose[1] - 10), font, 0.55, (0, 0, 0), 2)
-    cv2.putText(annotated, "Centro", (hip_center_x + 5, ank_center_y + 18), font, 0.5, (180, 0, 180), 2)
+    top_y = max(lm["nose"][1] - 40, 0)
+
+    # Plumb line from ankle center
+    cv2.line(annotated, (ank_center_x, ank_center_y + 20), (ank_center_x, top_y), (200, 0, 200), 2)
+
+    # Hip deviation
+    cv2.circle(annotated, (hip_center_x, (lm["left_hip"][1] + lm["right_hip"][1]) // 2), 9, (0, 200, 80), -1)
+    cv2.line(annotated, (ank_center_x, (lm["left_hip"][1] + lm["right_hip"][1]) // 2),
+             (hip_center_x, (lm["left_hip"][1] + lm["right_hip"][1]) // 2), (0, 200, 80), 2)
+
+    # Shoulder deviation
+    cv2.circle(annotated, (sh_center_x, (lm["left_shoulder"][1] + lm["right_shoulder"][1]) // 2), 9, (0, 140, 255), -1)
+    cv2.line(annotated, (ank_center_x, (lm["left_shoulder"][1] + lm["right_shoulder"][1]) // 2),
+             (sh_center_x, (lm["left_shoulder"][1] + lm["right_shoulder"][1]) // 2), (0, 140, 255), 2)
+
+    # Ankle center
+    cv2.circle(annotated, (ank_center_x, ank_center_y), 9, (255, 200, 0), -1)
+
+    hip_y = (lm["left_hip"][1] + lm["right_hip"][1]) // 2
+    sh_y  = (lm["left_shoulder"][1] + lm["right_shoulder"][1]) // 2
+    cv2.putText(annotated, f"Inf: {inferior_dev:+.1f}%", (hip_center_x + 12, hip_y - 10), font, 0.52, (0, 120, 0), 2)
+    cv2.putText(annotated, f"Sup: {superior_dev:+.1f}%", (sh_center_x + 12, sh_y - 10), font, 0.52, (0, 80, 200), 2)
+    cv2.putText(annotated, f"Barre: {barre_class}", (ank_center_x + 5, ank_center_y + 22), font, 0.65, (150, 0, 200), 2)
 
     _, buffer = cv2.imencode('.png', annotated)
     annotated_b64 = base64.b64encode(buffer).decode('utf-8')
@@ -513,6 +586,10 @@ def analyze_alignment_frontal(file: UploadFile = File(...)):
     return {
         "metrics": {
             "classification": classification,
+            "barre_class": barre_class,
+            "barre_description": barre_desc,
+            "inferior_deviation_pct": round(inferior_dev, 1),
+            "superior_deviation_pct": round(superior_dev, 1),
             "nose_deviation_pct": round(nose_dev_pct, 1),
         },
         "images": {"annotated": f"data:image/png;base64,{annotated_b64}"},

@@ -24,6 +24,9 @@ export default defineEventHandler(async (event) => {
       alineacionSagitalDebugImg: body.alineacionSagitalDebugImg ?? null,
       alineacionFrontalResult: body.alineacionFrontalResult ?? null,
       alineacionFrontalDebugImg: body.alineacionFrontalDebugImg ?? null,
+      notas: body.notas ?? null,
+      miofascialFrontalImg: body.miofascialFrontalImg ?? null,
+      miofascialPosteriorImg: body.miofascialPosteriorImg ?? null,
     },
   })
 })

@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
       nombre: body.nombre,
       edad: Number(body.edad),
       sexo: body.sexo,
+      altura: body.altura ? Number(body.altura) : null,
     },
     include: { analyses: true },
   })
