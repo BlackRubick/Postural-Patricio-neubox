@@ -40,6 +40,18 @@
           </svg>
           <span>Análisis</span>
         </button>
+
+        <NuxtLink
+          v-if="user?.role === 'admin'"
+          to="/usuarios"
+          class="nav-item"
+          :class="{ active: route.path.startsWith('/usuarios') }"
+        >
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Usuarios</span>
+        </NuxtLink>
       </nav>
 
       <!-- Dark mode toggle -->
