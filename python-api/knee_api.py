@@ -257,7 +257,7 @@ def _detect_chain_traits(chain, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_
     rasgos = []
     for name in traits_names:
         cumple, auto = _detect_single_trait(name, lm, ang_lk, ang_rk, ang_lh, ang_rh, ang_la, ang_ra, scale)
-        rasgos.append({"nombre": name, "cumple": cumple, "auto": auto})
+        rasgos.append({"nombre": name, "cumple": bool(cumple), "auto": bool(auto)})
 
     total = len(rasgos)
     cumplidos = sum(1 for r in rasgos if r["cumple"])
@@ -369,13 +369,13 @@ def analyze_muscle_chain(
             "explanation": explanation,
             "rasgos": rasgos_legacy,
             "rasgos_detallados": rasgos_detallados,
-            "porcentaje": porcentaje,
-            "left_knee_angle":   ang_left_knee,
-            "right_knee_angle":  ang_right_knee,
-            "left_hip_angle":    ang_left_hip,
-            "right_hip_angle":   ang_right_hip,
-            "left_ankle_angle":  ang_left_ankle,
-            "right_ankle_angle": ang_right_ankle,
+            "porcentaje": float(porcentaje),
+            "left_knee_angle":   float(ang_left_knee),
+            "right_knee_angle":  float(ang_right_knee),
+            "left_hip_angle":    float(ang_left_hip),
+            "right_hip_angle":   float(ang_right_hip),
+            "left_ankle_angle":  float(ang_left_ankle),
+            "right_ankle_angle": float(ang_right_ankle),
             "imagen_original": img_b64,
             "imagen_frontal": frontal_b64,
             "imagen_posterior": posterior_b64,
@@ -712,7 +712,7 @@ def analyze_knee_frontal(file: UploadFile = File(...)):
     return {
         "metrics": {
             "plane": "frontal",
-            "knee_angle_deg": angle,
+            "knee_angle_deg": float(angle) if angle is not None else None,
             "classification": classification,
         },
         "images": {
@@ -734,7 +734,7 @@ def analyze_knee_sagittal(file: UploadFile = File(...)):
     return {
         "metrics": {
             "plane": "sagittal",
-            "knee_angle_deg": angle,
+            "knee_angle_deg": float(angle) if angle is not None else None,
             "classification": classification,
         },
         "images": {
