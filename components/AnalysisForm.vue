@@ -332,6 +332,12 @@ const currentPatient = computed(() =>
   props.patientId ? store.patients.find(p => p.id === props.patientId) || null : null
 )
 
+onMounted(async () => {
+  if (props.patientId && !store.patients.length) {
+    try { await store.loadPatients() } catch {}
+  }
+})
+
 const STEPS = [
   { short: 'Podometría',   emoji: '🦶', color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
   { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
