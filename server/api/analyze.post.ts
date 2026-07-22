@@ -224,7 +224,7 @@ async function callClaude(
   prompt: string,
 ): Promise<unknown> {
   const stream = await client.messages.stream({
-    model: 'claude-opus-4-8',
+    model: 'claude-fable-5',
     max_tokens: 8000,
     thinking: { type: 'adaptive' },
     messages: [
@@ -235,6 +235,9 @@ async function callClaude(
     ],
   })
   const msg = await stream.finalMessage()
+  if (msg.stop_reason === 'refusal') {
+    throw createError({ statusCode: 422, statusMessage: 'Claude no pudo procesar esta imagen' })
+  }
   const textBlock = msg.content.find(b => b.type === 'text')
   if (!textBlock || textBlock.type !== 'text') throw new Error('Sin respuesta de texto')
   return extractJson(textBlock.text)
