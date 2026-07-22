@@ -339,12 +339,12 @@ onMounted(async () => {
 })
 
 const STEPS = [
-  { short: 'Podometría',   emoji: '🦶', color: '#eff6ff', type: 'podometria' },
-  { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', type: 'frontal' },
-  { short: 'Sagital',      emoji: '📐', color: '#fdf4ff', type: 'sagital' },
-  { short: 'Alin. Sagital',emoji: '📏', color: '#f0f9ff', type: 'alineacion-sagital' },
-  { short: 'V. de Barré',  emoji: '⬆️', color: '#f0fdf9', type: 'vertical-barre' },
-  { short: 'Miofascial',   emoji: '💪', color: '#fff7ed', type: 'miofascial' },
+  { short: 'Podometría',   emoji: '🦶', color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
+  { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
+  { short: 'Sagital',      emoji: '📐', color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
+  { short: 'Alin. Sagital',emoji: '📏', color: '#f0f9ff', endpoint: 'http://127.0.0.1:8000/analyze-alignment/sagittal/' },
+  { short: 'V. de Barré',  emoji: '⬆️', color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
+  { short: 'Miofascial',   emoji: '💪', color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
 ]
 
 const today = new Date().toISOString().slice(0, 10)
@@ -458,15 +458,21 @@ async function handleFileChange(e) {
   form.value[key] = files[0]
   pieLoading.value = true
   const s = step.value
-  const analysisType = STEPS[s]?.type || ''
+  const endpoint = STEPS[s]?.endpoint || ''
   const label = STEPS[s]?.short || 'imagen'
   const fd = new FormData()
-  fd.append('type', analysisType)
   fd.append('file', files[0])
   if (s === 5 && form.value.miofascialFrontalImg) fd.append('file_frontal', form.value.miofascialFrontalImg)
   if (s === 5 && form.value.miofascialPosteriorImg) fd.append('file_posterior', form.value.miofascialPosteriorImg)
+  if (s === 0) {
+    fd.append('binarization_type', binarizationType.value)
+    fd.append('adaptive_c', adaptiveC.value.toString())
+    fd.append('fixed_threshold', fixedThreshold.value.toString())
+    fd.append('invert', invertThreshold.value.toString())
+    fd.append('foot_length_cm', (footLengthCm.value || 0).toString())
+  }
   try {
-    const res = await fetch('/api/analyze', { method: 'POST', body: fd })
+    const res = await fetch(endpoint, { method: 'POST', body: fd })
     let data = null
     try { data = await res.json() } catch {}
     if (!res.ok) {
