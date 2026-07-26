@@ -158,19 +158,19 @@ async function generatePdf(a) {
 
     if (a.frontalResult) {
       const imgs = a.frontalDebugImg ? [{ titulo: 'Vista frontal', base64: a.frontalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
-      analisis.push({ titulo: 'Ángulo tibiofemoral (frontal)', explicacion: a.frontalResult.tipo || '', metricas: [`Ángulo: ${a.frontalResult.angulo}`], imagenes: imgs })
+      analisis.push({ titulo: 'Ángulo Tibiofemoral (Anterior o Frontal)', explicacion: a.frontalResult.tipo || '', metricas: [`Ángulo: ${a.frontalResult.angulo}`], imagenes: imgs })
     }
 
     if (a.sagitalResult) {
-      const imgs = a.sagitalDebugImg ? [{ titulo: 'Vista sagital', base64: a.sagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
-      analisis.push({ titulo: 'Ángulo tibiofemoral (sagital)', explicacion: a.sagitalResult.tipo || '', metricas: [`Ángulo: ${a.sagitalResult.angulo}`], imagenes: imgs })
+      const imgs = a.sagitalDebugImg ? [{ titulo: 'Vista lateral / sagital', base64: a.sagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      analisis.push({ titulo: 'Ángulo Tibiofemoral (Lateral o Sagital)', explicacion: a.sagitalResult.tipo || '', metricas: [`Ángulo: ${a.sagitalResult.angulo}`], imagenes: imgs })
     }
 
     if (a.alineacionSagitalResult) {
       const r = a.alineacionSagitalResult
-      const imgs = a.alineacionSagitalDebugImg ? [{ titulo: 'Alineación sagital', base64: a.alineacionSagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+      const imgs = a.alineacionSagitalDebugImg ? [{ titulo: 'Alineación — Línea Plomada de Kendall', base64: a.alineacionSagitalDebugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
       analisis.push({
-        titulo: 'Alineación vertical sagital',
+        titulo: 'Alineación Postural — Línea Plomada de Kendall',
         explicacion: r.tipo || '',
         metricas: [
           `Desviación hombro: ${r.hombro != null ? r.hombro + '%' : 'N/A'}`,
@@ -200,9 +200,9 @@ async function generatePdf(a) {
       const arr = Array.isArray(a.miofascialResult) ? a.miofascialResult : [a.miofascialResult]
       const m = arr[0]
       const imgs = []
-      if (a.miofascialDebugImg) imgs.push({ titulo: 'Cadena miofascial (sagital)', base64: a.miofascialDebugImg.replace(/^data:image\/\w+;base64,/, '') })
+      if (a.miofascialDebugImg) imgs.push({ titulo: 'Cadena miofascial (lateral / sagital)', base64: a.miofascialDebugImg.replace(/^data:image\/\w+;base64,/, '') })
       analisis.push({
-        titulo: 'Cadena miofascial',
+        titulo: 'Evaluación de Cadenas Miofasiales',
         tipo: m?.tipo || '',
         explicacion: m?.explicacion || '',
         metricas: m?.rasgos || [],
@@ -263,25 +263,25 @@ function typeEmoji(tipo) {
   return (TYPE_MAP[tipo] || { emoji: '🔬' }).emoji
 }
 
-function getStoredComment(id) {
-  if (!import.meta.client) return ''
-  const comments = JSON.parse(localStorage.getItem('analysisComments') || '{}')
-  return comments[id] || ''
-}
-
 function openModal(analysis) {
   selectedAnalysis.value = analysis
-  comment.value = getStoredComment(analysis.id)
+  comment.value = analysis.notas || ''
   modalOpen.value = true
 }
 
-function saveComment() {
+async function saveComment() {
   if (!selectedAnalysis.value) return
-  const comments = JSON.parse(localStorage.getItem('analysisComments') || '{}')
-  comments[selectedAnalysis.value.id] = comment.value
-  localStorage.setItem('analysisComments', JSON.stringify(comments))
-  modalOpen.value = false
-  Swal.fire({ icon: 'success', title: 'Nota guardada', timer: 1200, showConfirmButton: false })
+  try {
+    await $fetch(`/api/analyses/${selectedAnalysis.value.id}`, {
+      method: 'PUT',
+      body: { notas: comment.value },
+    })
+    selectedAnalysis.value.notas = comment.value
+    modalOpen.value = false
+    Swal.fire({ icon: 'success', title: 'Nota guardada', timer: 1200, showConfirmButton: false })
+  } catch {
+    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar la nota.' })
+  }
 }
 </script>
 

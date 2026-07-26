@@ -66,10 +66,20 @@ def _smooth_widths(widths: np.ndarray, window: int = 5) -> np.ndarray:
     return np.convolve(widths, np.ones(window) / window, mode='same')
 
 
-def _measure_widths_rotated(mask: np.ndarray, center: np.ndarray, axis: np.ndarray):
+def _measure_widths_rotated(
+    mask: np.ndarray,
+    center: np.ndarray,
+    axis: np.ndarray,
+    posterior: tuple,
+):
     """
     Rotate the (single-foot) mask so the foot axis is vertical, then measure
     row-wise widths to compute the Hernández-Corvo X and Y values.
+
+    HC requires the forefoot (toes + ball) at the TOP of the rotated image so
+    that zone 0-40 % captures the widest part (metatarsal heads).  We resolve
+    the PCA eigenvector ambiguity by checking where the *posterior* point
+    (heel) lands after rotation: if it is in the top half we flip 180°.
     """
     angle = np.degrees(np.arctan2(axis[1], axis[0]))
     h, w = mask.shape[:2]
@@ -82,8 +92,24 @@ def _measure_widths_rotated(mask: np.ndarray, center: np.ndarray, axis: np.ndarr
 
     y_min, y_max = int(np.min(ys)), int(np.max(ys))
     x_min, x_max = int(np.min(xs)), int(np.max(xs))
-    roi = rotated[y_min: y_max + 1, x_min: x_max + 1]
 
+    # Check orientation: if the heel (posterior point) is in the top half of
+    # the rotated foot, the foot is upside-down (toes at bottom) → flip 180°.
+    post_rot = cv2.transform(
+        np.array([[[float(posterior[0]), float(posterior[1])]]], dtype=np.float32),
+        rot_mat,
+    )[0][0]
+    y_mid = (y_min + y_max) / 2.0
+    if float(post_rot[1]) < y_mid:
+        rot_mat = cv2.getRotationMatrix2D(
+            (float(center[0]), float(center[1])), angle + 90.0, 1.0
+        )
+        rotated = cv2.warpAffine(mask, rot_mat, (w, h), flags=cv2.INTER_NEAREST)
+        ys, xs = np.where(rotated > 0)
+        y_min, y_max = int(np.min(ys)), int(np.max(ys))
+        x_min, x_max = int(np.min(xs)), int(np.max(xs))
+
+    roi = rotated[y_min: y_max + 1, x_min: x_max + 1]
     raw_widths = np.sum(roi > 0, axis=1).astype(float)
     n_rows = len(raw_widths)
     if n_rows < 10:
@@ -132,7 +158,7 @@ def apply_hernandez_corvo(mask: np.ndarray, contour: np.ndarray):
     (i.e. a per-foot mask, not the full image mask with both feet).
     """
     center, axis, posterior, anterior = _principal_axis_from_contour(contour)
-    widths_info = _measure_widths_rotated(mask, center, axis)
+    widths_info = _measure_widths_rotated(mask, center, axis, posterior)
 
     x_width = widths_info["x_width"]
     y_width = widths_info["y_width"]

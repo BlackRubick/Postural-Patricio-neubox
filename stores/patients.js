@@ -114,6 +114,22 @@ export const usePatientsStore = defineStore('patients', () => {
     }
   }
 
+  function insertAnalysis(patientId, analysis) {
+    const patient = patients.value.find(p => p.id === patientId)
+    if (patient) {
+      if (!patient.analyses) patient.analyses = []
+      patient.analyses.unshift(analysis)
+    }
+  }
+
+  function replaceAnalysis(patientId, analysisId, analysis) {
+    const patient = patients.value.find(p => p.id === patientId)
+    if (patient?.analyses) {
+      const idx = patient.analyses.findIndex(a => a.id === analysisId)
+      if (idx !== -1) patient.analyses[idx] = analysis
+    }
+  }
+
   return {
     patients,
     loading,
@@ -124,5 +140,7 @@ export const usePatientsStore = defineStore('patients', () => {
     addAnalysis,
     updateAnalysis,
     deleteAnalysis,
+    insertAnalysis,
+    replaceAnalysis,
   }
 })

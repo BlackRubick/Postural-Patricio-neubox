@@ -19,7 +19,7 @@
       <!-- Header -->
       <div class="af-header">
         <div class="af-icon" :style="{ background: STEPS[step].color }">
-          <span style="font-size:1.3rem">{{ STEPS[step].emoji }}</span>
+          <span class="af-step-num">{{ step + 1 }}</span>
         </div>
         <div>
           <h2 class="af-title">{{ stepTitle }}</h2>
@@ -70,25 +70,25 @@
 
       <!-- Miofascial: 3 image uploads for frontal and posterior (sagital is handled below) -->
       <div v-if="step === 5" class="mio-extra-images">
-        <p class="mio-extra-label">Imagen frontal (opcional)</p>
+        <p class="mio-extra-label">Imagen anterior / frontal</p>
         <div class="upload-zone" :class="{ uploaded: !!form.miofascialFrontalImg }" style="margin-bottom:0.75rem">
-          <input type="file" accept="image/*" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialFrontalImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_frontal = ev.target.result }; r.readAsDataURL(f) } }" />
+          <input type="file" accept="image/*" capture="environment" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialFrontalImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_frontal = ev.target.result }; r.readAsDataURL(f) } }" />
           <div class="upload-icon">
             <svg v-if="!form.miofascialFrontalImg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <svg v-else width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialFrontalImg ? 'Frontal lista' : 'Subir foto frontal' }}</p>
+          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialFrontalImg ? 'Anterior / frontal lista' : 'Subir imagen anterior / frontal' }}</p>
         </div>
-        <p class="mio-extra-label">Imagen posterior / espaldas (opcional)</p>
+        <p class="mio-extra-label">Imagen posterior / espalda</p>
         <div class="upload-zone" :class="{ uploaded: !!form.miofascialPosteriorImg }" style="margin-bottom:0.75rem">
-          <input type="file" accept="image/*" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialPosteriorImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_posterior = ev.target.result }; r.readAsDataURL(f) } }" />
+          <input type="file" accept="image/*" capture="environment" @change="e => { const f = e.target.files?.[0]; if(f){ form.miofascialPosteriorImg = f; const r = new FileReader(); r.onload = ev => { analisisState.miofascial.imagen_posterior = ev.target.result }; r.readAsDataURL(f) } }" />
           <div class="upload-icon">
             <svg v-if="!form.miofascialPosteriorImg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <svg v-else width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
-          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialPosteriorImg ? 'Posterior lista' : 'Subir foto posterior/espaldas' }}</p>
+          <p class="upload-title" style="font-size:.8rem">{{ form.miofascialPosteriorImg ? 'Posterior / espalda lista' : 'Subir imagen posterior / espalda' }}</p>
         </div>
-        <p class="mio-extra-label">Imagen sagital — <strong>requerida para el análisis</strong></p>
+        <p class="mio-extra-label">Imagen lateral / sagital</p>
       </div>
 
       <!-- Capture method tabs -->
@@ -339,12 +339,12 @@ onMounted(async () => {
 })
 
 const STEPS = [
-  { short: 'Podometría',   emoji: '🦶', color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
-  { short: 'Frontal',      emoji: '🧍', color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
-  { short: 'Sagital',      emoji: '📐', color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
-  { short: 'Alin. Sagital',emoji: '📏', color: '#f0f9ff', endpoint: 'http://127.0.0.1:8000/analyze-alignment/sagittal/' },
-  { short: 'V. de Barré',  emoji: '⬆️', color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
-  { short: 'Miofascial',   emoji: '💪', color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
+  { short: 'Podometría',    color: '#eff6ff', endpoint: 'http://127.0.0.1:8000/analyze-foot/' },
+  { short: 'Frontal',       color: '#f0fdf4', endpoint: 'http://127.0.0.1:8000/analyze-knee/frontal/' },
+  { short: 'Sagital',       color: '#fdf4ff', endpoint: 'http://127.0.0.1:8000/analyze-knee/sagittal/' },
+  { short: 'Alin. Sagital', color: '#f0f9ff', endpoint: 'http://127.0.0.1:8000/analyze-alignment/sagittal/' },
+  { short: 'V. de Barré',   color: '#f0fdf9', endpoint: 'http://127.0.0.1:8000/analyze-alignment/frontal/' },
+  { short: 'Miofascial',    color: '#fff7ed', endpoint: 'http://127.0.0.1:8000/analyze-muscle-chain/' },
 ]
 
 const today = new Date().toISOString().slice(0, 10)
@@ -404,11 +404,11 @@ const uploadKey = computed(() => {
 const stepTitle = computed(() => {
   const t = [
     'Podometría digital',
-    'Ángulo tibiofemoral (Frontal)',
-    'Ángulo tibiofemoral (Sagital)',
-    'Alineación vertical sagital',
+    'Ángulo Tibiofemoral (Anterior o Frontal)',
+    'Ángulo Tibiofemoral (Lateral o Sagital)',
+    'Alineación Postural — Línea Plomada de Kendall',
     'Vertical de Barré',
-    'Cadena miofascial',
+    'Evaluación de Cadenas Miofasiales',
   ]
   return props.initial ? 'Editar Test' : t[step.value]
 })
@@ -416,11 +416,11 @@ const stepTitle = computed(() => {
 const stepSubtitle = computed(() => {
   const s = [
     'Captura la huella plantar del paciente',
-    'Sube o toma la foto de la vista frontal (rodilla)',
-    'Sube o toma la foto de la vista sagital (rodilla)',
-    'Vista lateral — línea vertical desde el tobillo',
-    'Vista posterior (de espaldas) — línea vertical de Barré',
-    'Sube 3 fotos posturales (frontal, posterior y sagital) para el análisis de cadena miofascial',
+    'Sube o toma la imagen anterior / frontal (rodilla)',
+    'Sube o toma la imagen lateral / sagital (rodilla)',
+    'Vista lateral — evaluación con línea plomada de Kendall',
+    'Vista posterior / espalda — línea vertical de Barré',
+    'Sube 3 imágenes posturales para el análisis de cadenas miofasiales',
   ]
   return s[step.value]
 })
@@ -490,10 +490,10 @@ async function handleFileChange(e) {
         porcentajeX: m.plantar_index?.toFixed(2),
         X: m.calibrated
           ? m.x_width_cm?.toFixed(1) + ' cm'
-          : m.x_width_px?.toFixed(0) + ' px (sin calibrar)',
+          : m.x_width_px?.toFixed(0) + ' px',
         Y: m.calibrated
           ? m.y_width_cm?.toFixed(1) + ' cm'
-          : m.y_width_px?.toFixed(0) + ' px (sin calibrar)',
+          : m.y_width_px?.toFixed(0) + ' px',
       }))
       if (data.images?.annotated) { analisisState.value.podometria.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
       const reader = new FileReader()
@@ -575,38 +575,46 @@ async function handleSubmit() {
     return
   }
   const st = analisisState.value
-  const id = form.value.id || Date.now()
 
   Swal.fire({ title: 'Guardando análisis...', allowOutsideClick: false, didOpen: () => Swal.showLoading() })
 
-  const compressed = await compressAnalisisState(st)
+  try {
+    const compressed = await compressAnalisisState(st)
 
-  emit('save', {
-    tipoTest: form.value.tipoTest,
-    fecha: form.value.fecha,
-    completado: form.value.completado,
-    id,
-    pdfUrl: null,
-    notas: form.value.notas || null,
-    podometriaResult: st.podometria.result ?? null,
-    podometriaDebugImg: compressed.podometriaDebugImg ?? null,
-    podometriaHuella: compressed.podometriaHuella ?? null,
-    frontalResult: st.frontal.result ?? null,
-    frontalDebugImg: compressed.frontalDebugImg ?? null,
-    sagitalResult: st.sagital.result ?? null,
-    sagitalDebugImg: compressed.sagitalDebugImg ?? null,
-    alineacionSagitalResult: st.alineacionSagital.result ?? null,
-    alineacionSagitalDebugImg: compressed.alineacionSagitalDebugImg ?? null,
-    alineacionFrontalResult: st.alineacionFrontal.result ?? null,
-    alineacionFrontalDebugImg: compressed.alineacionFrontalDebugImg ?? null,
-    miofascialResult: st.miofascial.result ?? null,
-    miofascialDebugImg: compressed.miofascialDebugImg ?? null,
-    miofascialImagenOriginal: compressed.miofascialImagenOriginal ?? null,
-    miofascialFrontalImg: compressed.miofascialFrontalImg ?? null,
-    miofascialPosteriorImg: compressed.miofascialPosteriorImg ?? null,
-  })
-  Swal.fire({ icon: 'success', title: props.initial ? 'Análisis actualizado' : 'Análisis guardado', timer: 1600, showConfirmButton: false })
-  generateAndDownloadPdf(id)
+    const body = {
+      tipoTest: form.value.tipoTest,
+      fecha: form.value.fecha,
+      completado: form.value.completado,
+      pdfUrl: null,
+      notas: form.value.notas || null,
+      podometriaResult: st.podometria.result ?? null,
+      podometriaDebugImg: compressed.podometriaDebugImg ?? null,
+      podometriaHuella: compressed.podometriaHuella ?? null,
+      frontalResult: st.frontal.result ?? null,
+      frontalDebugImg: compressed.frontalDebugImg ?? null,
+      sagitalResult: st.sagital.result ?? null,
+      sagitalDebugImg: compressed.sagitalDebugImg ?? null,
+      alineacionSagitalResult: st.alineacionSagital.result ?? null,
+      alineacionSagitalDebugImg: compressed.alineacionSagitalDebugImg ?? null,
+      alineacionFrontalResult: st.alineacionFrontal.result ?? null,
+      alineacionFrontalDebugImg: compressed.alineacionFrontalDebugImg ?? null,
+      miofascialResult: st.miofascial.result ?? null,
+      miofascialDebugImg: compressed.miofascialDebugImg ?? null,
+      miofascialImagenOriginal: compressed.miofascialImagenOriginal ?? null,
+      miofascialFrontalImg: compressed.miofascialFrontalImg ?? null,
+      miofascialPosteriorImg: compressed.miofascialPosteriorImg ?? null,
+    }
+
+    const saved = props.initial
+      ? await $fetch(`/api/analyses/${props.initial.id}`, { method: 'PUT', body })
+      : await $fetch(`/api/patients/${props.patientId}/analyses`, { method: 'POST', body })
+
+    emit('save', saved)
+    Swal.fire({ icon: 'success', title: props.initial ? 'Análisis actualizado' : 'Análisis guardado', timer: 1600, showConfirmButton: false })
+    generateAndDownloadPdf(saved.id)
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Error al guardar', text: e?.data?.message || e?.message || 'No se pudo guardar el análisis.' })
+  }
 }
 
 function compressBase64Image(src, maxWidth = 800, quality = 0.72) {
@@ -678,19 +686,19 @@ function generateAndDownloadPdf(analysisId) {
 
   if (st.frontal.result) {
     const imgs = st.frontal.debugImg ? [{ titulo: 'Vista frontal', base64: st.frontal.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
-    analisis.push({ titulo: 'Ángulo tibiofemoral (frontal)', explicacion: st.frontal.result.tipo || '', metricas: [`Ángulo: ${st.frontal.result.angulo}`], imagenes: imgs })
+    analisis.push({ titulo: 'Ángulo Tibiofemoral (Anterior o Frontal)', explicacion: st.frontal.result.tipo || '', metricas: [`Ángulo: ${st.frontal.result.angulo}`], imagenes: imgs })
   }
 
   if (st.sagital.result) {
-    const imgs = st.sagital.debugImg ? [{ titulo: 'Vista sagital', base64: st.sagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
-    analisis.push({ titulo: 'Ángulo tibiofemoral (sagital)', explicacion: st.sagital.result.tipo || '', metricas: [`Ángulo: ${st.sagital.result.angulo}`], imagenes: imgs })
+    const imgs = st.sagital.debugImg ? [{ titulo: 'Vista lateral / sagital', base64: st.sagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    analisis.push({ titulo: 'Ángulo Tibiofemoral (Lateral o Sagital)', explicacion: st.sagital.result.tipo || '', metricas: [`Ángulo: ${st.sagital.result.angulo}`], imagenes: imgs })
   }
 
   if (st.alineacionSagital.result) {
     const r = st.alineacionSagital.result
-    const imgs = st.alineacionSagital.debugImg ? [{ titulo: 'Alineación sagital', base64: st.alineacionSagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
+    const imgs = st.alineacionSagital.debugImg ? [{ titulo: 'Alineación — Línea Plomada de Kendall', base64: st.alineacionSagital.debugImg.replace(/^data:image\/\w+;base64,/, '') }] : []
     analisis.push({
-      titulo: 'Alineación vertical sagital',
+      titulo: 'Alineación Postural — Línea Plomada de Kendall',
       explicacion: r.tipo || '',
       metricas: [
         `Desviación hombro: ${r.hombro != null ? r.hombro + '%' : 'N/A'}`,
@@ -719,9 +727,9 @@ function generateAndDownloadPdf(analysisId) {
   if (st.miofascial.result) {
     const m = st.miofascial.result[0]
     const imgs = []
-    if (st.miofascial.debugImg)    imgs.push({ titulo: 'Cadena miofascial (sagital)', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') })
+    if (st.miofascial.debugImg)    imgs.push({ titulo: 'Cadena miofascial (lateral / sagital)', base64: st.miofascial.debugImg.replace(/^data:image\/\w+;base64,/, '') })
     analisis.push({
-      titulo: 'Cadena miofascial',
+      titulo: 'Evaluación de Cadenas Miofasiales',
       tipo: m?.tipo || '',
       explicacion: m?.explicacion || '',
       metricas: m?.rasgos || [],
@@ -912,6 +920,12 @@ function handleCapture() {
   justify-content: center;
   flex-shrink: 0;
   border: 1px solid var(--border);
+}
+.af-step-num {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
 }
 .af-title    { font-size: 1.05rem; font-weight: 800; color: var(--text-base); letter-spacing: -0.02em; }
 .af-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }

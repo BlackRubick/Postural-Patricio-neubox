@@ -27,7 +27,7 @@
           <span class="text-blue-200">Inteligente</span>
         </h1>
         <p class="text-blue-200 text-base leading-relaxed mb-10 max-w-xs">
-          Kyene'is Pondyam — Diagnóstico biomecánico de precisión para profesionales de la salud.
+          Kyene'is Pondyam — Soporte biomecánico para análisis de precisión para profesionales de la salud.
         </p>
 
         <div class="flex flex-col gap-4">
@@ -139,10 +139,56 @@
           </button>
         </form>
 
-        <p class="mt-8 text-center text-xs text-gray-400">
+        <p class="mt-6 text-center text-xs text-gray-400">
           Acceso restringido a personal autorizado
         </p>
+        <p class="mt-3 text-center text-xs text-gray-400">
+          ¿No tienes cuenta?
+          <button type="button" class="text-blue-600 font-semibold hover:underline" @click="showRegister = true">
+            Crear perfil
+          </button>
+        </p>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal de registro -->
+  <div v-if="showRegister" class="fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.45)">
+    <div class="w-full max-w-sm rounded-2xl p-7 shadow-2xl" style="background:var(--surface,#fff)">
+      <h3 class="text-lg font-extrabold text-gray-900 mb-1">Crear perfil</h3>
+      <p class="text-xs text-gray-400 mb-5">Completa tus datos para solicitar acceso</p>
+      <form @submit.prevent="handleRegister" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Nombre completo</label>
+          <input v-model="regName" type="text" required placeholder="Dr. Juan Pérez"
+            class="login-input w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Correo electrónico</label>
+          <input v-model="regEmail" type="email" required placeholder="doctor@gmail.com"
+            class="login-input w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Contraseña</label>
+          <input v-model="regPassword" type="password" required placeholder="Mínimo 6 caracteres"
+            class="login-input w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
+        </div>
+        <transition name="slide-down">
+          <div v-if="regError" class="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-xl px-3 py-2.5 text-xs font-medium">
+            {{ regError }}
+          </div>
+        </transition>
+        <div class="flex gap-2 pt-1">
+          <button type="button" class="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition" @click="showRegister = false">
+            Cancelar
+          </button>
+          <button type="submit" :disabled="regLoading"
+            class="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
+            style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+            {{ regLoading ? 'Creando...' : 'Crear cuenta' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </template>
@@ -154,7 +200,7 @@ const { login } = useAuth()
 
 const features = [
   'Podometría digital avanzada',
-  'Análisis frontal y sagital',
+  'Análisis anterior, lateral y posterior',
   'Evaluación miofascial',
   'Generación de reportes PDF',
 ]
@@ -164,6 +210,13 @@ const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const errorMsg = ref('')
+
+const showRegister = ref(false)
+const regName = ref('')
+const regEmail = ref('')
+const regPassword = ref('')
+const regLoading = ref(false)
+const regError = ref('')
 
 async function handleLogin() {
   errorMsg.value = ''
@@ -175,6 +228,28 @@ async function handleLogin() {
     errorMsg.value = e?.data?.message || 'Credenciales incorrectas'
   } finally {
     loading.value = false
+  }
+}
+
+async function handleRegister() {
+  regError.value = ''
+  if (regPassword.value.length < 6) { regError.value = 'La contraseña debe tener al menos 6 caracteres'; return }
+  regLoading.value = true
+  try {
+    await $fetch('/api/auth/register', {
+      method: 'POST',
+      body: { name: regName.value, email: regEmail.value, password: regPassword.value },
+    })
+    showRegister.value = false
+    regName.value = ''; regEmail.value = ''; regPassword.value = ''
+    email.value = regEmail.value
+    errorMsg.value = ''
+    await login(regEmail.value, regPassword.value).catch(() => {})
+    await navigateTo('/')
+  } catch (e) {
+    regError.value = e?.data?.message || 'No se pudo crear la cuenta'
+  } finally {
+    regLoading.value = false
   }
 }
 </script>

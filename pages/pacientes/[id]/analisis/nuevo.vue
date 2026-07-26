@@ -13,12 +13,8 @@ import { usePatientsStore } from '~/stores/patients'
 const route = useRoute()
 const store = usePatientsStore()
 
-async function handleSave(data) {
-  try {
-    await store.addAnalysis(Number(route.params.id), data)
-    navigateTo(`/pacientes/${route.params.id}/analisis`)
-  } catch (e) {
-    console.error('Error guardando análisis:', e)
-  }
+function handleSave(savedAnalysis) {
+  store.insertAnalysis(Number(route.params.id), savedAnalysis)
+  navigateTo(`/pacientes/${route.params.id}/analisis`)
 }
 </script>

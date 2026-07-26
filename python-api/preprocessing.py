@@ -16,7 +16,7 @@ def _score_closed(closed: np.ndarray, img_area: int) -> float:
         x, y, bw, bh = cv2.boundingRect(c)
         if not (1.1 < max(bw, bh) / (min(bw, bh) + 1e-5) < 5.5):
             continue
-        if bh > img_h * 0.78:          # reject full-height strips
+        if bh > img_h * 0.92:          # reject only near-full-height strips; feet can be tall
             continue
         hull = cv2.contourArea(cv2.convexHull(c))
         if area / (hull + 1e-5) < 0.18:
@@ -92,7 +92,7 @@ def preprocess_foot_image(
     pl = max(20, int(w * 0.14))
     pr = max(20, int(w * 0.04))
     pt = max(10, int(h * 0.03))
-    pb = max(10, int(h * 0.03))
+    pb = max(15, int(h * 0.08))   # more bottom strip — removes podoscope light strip
 
     img_area = h * w
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -112,6 +112,25 @@ def preprocess_foot_image(
         candidates.append((sc, stripped))
 
     if binarization_type == 'otsu':
+        # ── 0. PRIMARY: color-targeted detection for podoscope images ─────────
+        # Feet are colored (cyan, green, blue, white) on a dark platform.
+        # Using a minimal left-strip here because feet can be near the left edge.
+        _pl_color = max(10, int(w * 0.04))
+        _color_ranges = [
+            # cyan/teal (most common podoscope color)
+            (np.array([65, 20, 60]),  np.array([140, 255, 255])),
+            # wider range covers green/blue variants
+            (np.array([50, 10, 40]),  np.array([160, 255, 255])),
+            # white/light gray feet (low saturation, high brightness)
+            (np.array([0,  0, 160]),  np.array([179,  40, 255])),
+        ]
+        for lo_arr, hi_arr in _color_ranges:
+            raw = cv2.inRange(hsv, lo_arr, hi_arr)
+            closed = _close_open(raw, ker_lg, ker_sm)
+            stripped = _post_strip(closed, _pl_color, pr, pt, pb)
+            sc = _score_closed(stripped, img_area)
+            candidates.append((sc * 2.0, stripped))  # weight 2× — these are most reliable
+
         # ── 1. Percentile threshold on V (brightness) — guaranteed coverage ──
         # "The top N% brightest pixels are the feet" works for any podoscope.
         for pct in (75, 80, 84, 87, 90):

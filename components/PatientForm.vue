@@ -122,7 +122,7 @@
     title="Carta de Consentimiento Informado y Aviso de Privacidad"
     @close="modalOpen = false"
   >
-    <div class="text-center mb-5">
+    <div class="flex justify-start mb-5">
       <span class="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-full">
         Proyecto: NEXO-POSTURAL: Kyene'is Pøndyam
       </span>

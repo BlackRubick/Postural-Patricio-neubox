@@ -13,8 +13,8 @@ def _is_foot_shaped(cnt: np.ndarray, img_w: int, img_h: int, min_solidity: float
     # Feet are roughly oval — reject very thin strips and near-circles
     if not (1.2 < aspect < 5.0):
         return False
-    # Reject blobs spanning most of the image height (podoscope frame strips)
-    if bh > img_h * 0.75:
+    # Reject blobs spanning nearly the full image height (podoscope frame strips)
+    if bh > img_h * 0.90:
         return False
     if _solidity(cnt) < min_solidity:
         return False

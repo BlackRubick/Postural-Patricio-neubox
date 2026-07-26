@@ -35,12 +35,8 @@ const analysis = computed(() =>
   patient.value?.analyses.find(a => a.id === Number(route.params.analysisId)) || null
 )
 
-async function handleSave(data) {
-  try {
-    await store.updateAnalysis(Number(route.params.id), Number(route.params.analysisId), data)
-    navigateTo(`/pacientes/${route.params.id}/analisis`)
-  } catch (e) {
-    console.error('Error actualizando análisis:', e)
-  }
+function handleSave(savedAnalysis) {
+  store.replaceAnalysis(Number(route.params.id), Number(route.params.analysisId), savedAnalysis)
+  navigateTo(`/pacientes/${route.params.id}/analisis`)
 }
 </script>

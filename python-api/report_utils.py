@@ -294,8 +294,13 @@ def draw_conclusions_page(c, width, height, analisis, paciente, fecha, page_num=
     y -= 16
 
     for bloque in analisis:
-        if y < 80:
-            break
+        if y < 120:
+            page_num += 1
+            c.showPage()
+            draw_background(c, width, height)
+            draw_footer(c, width, page_num)
+            y = draw_header(c, width, height)
+            y -= 10
         titulo = bloque.get("titulo", "")
         explicacion = bloque.get("explicacion", "")
 
@@ -314,15 +319,29 @@ def draw_conclusions_page(c, width, height, analisis, paciente, fecha, page_num=
             c.drawString(MARGIN_L + 16, y, f"Clasificación Barré: {bloque['barre_class']}")
             y -= 16
         elif explicacion:
-            max_chars = 100
-            exp = explicacion[:max_chars] + ("…" if len(explicacion) > max_chars else "")
+            words = explicacion.split()
+            lines, cur = [], ""
+            for w in words:
+                test = (cur + " " + w).strip()
+                if len(test) > 92:
+                    lines.append(cur)
+                    cur = w
+                else:
+                    cur = test
+            if cur:
+                lines.append(cur)
             c.setFillColor(TEXT_MID)
             c.setFont("Helvetica", 8.5)
-            c.drawString(MARGIN_L + 16, y, exp)
-            y -= 16
+            for ln in lines[:3]:
+                if y < 80:
+                    break
+                c.drawString(MARGIN_L + 16, y, ln)
+                y -= 13
+            y -= 4
 
         metricas = bloque.get("metricas", [])
-        if isinstance(metricas, list) and metricas and not ("cadena" in titulo.lower()):
+        es_cadena_conc = "cadena" in titulo.lower() or "miofasial" in titulo.lower() or "miofascial" in titulo.lower()
+        if isinstance(metricas, list) and metricas and not es_cadena_conc:
             c.setFillColor(TEXT_DARK)
             c.setFont("Helvetica", 8)
             met_text = "  ·  ".join(str(m) for m in metricas[:3])
@@ -400,7 +419,7 @@ def draw_consent_page(c, width, height, page_num=99):
 
     c.setFillColor(ACCENT)
     c.setFont("Helvetica-Bold", 8.5)
-    c.drawCentredString(width / 2, y, "Proyecto: NEXO-POSTURAL: Kyene'is Pøndyam")
+    c.drawString(MARGIN_L, y, "Proyecto: NEXO-POSTURAL: Kyene'is Pøndyam")
     y -= 22
 
     sections = [
@@ -450,20 +469,21 @@ def draw_consent_page(c, width, height, page_num=99):
             y -= 12
         y -= 10
 
-    # Firma
+    # Firmas al mismo nivel
     if y > 100:
-        y -= 20
+        y -= 30
         c.setStrokeColor(DIVIDER)
         c.setLineWidth(0.6)
-        sig_x = MARGIN_L + 40
-        c.line(sig_x, y, sig_x + 180, y)
-        y -= 14
         c.setFillColor(TEXT_LIGHT)
         c.setFont("Helvetica", 8)
-        c.drawString(sig_x, y, "Firma del paciente o tutor")
-        y -= 30
-        c.line(sig_x + 220, y + 16, sig_x + 420, y + 16)
-        c.drawString(sig_x + 220, y + 2, "Firma del profesional")
+        sig_y = y
+        sig1_x = MARGIN_L + 20
+        sig2_x = MARGIN_L + 280
+        sig_w = 180
+        c.line(sig1_x, sig_y, sig1_x + sig_w, sig_y)
+        c.drawCentredString(sig1_x + sig_w / 2, sig_y - 14, "Firma del paciente o tutor")
+        c.line(sig2_x, sig_y, sig2_x + sig_w, sig_y)
+        c.drawCentredString(sig2_x + sig_w / 2, sig_y - 14, "Firma del profesional")
 
 
 # ─── FUNCIÓN PRINCIPAL ───────────────────────────────────────────────────────
@@ -495,7 +515,7 @@ def generate_report_pdf(data):
     analisis = data.get("analisis", [])
 
     for bloque in analisis:
-        if y < 140:
+        if y < 220:
             page_num += 1
             y = new_page(c, width, height, page_num)
             y -= 10
@@ -504,7 +524,7 @@ def generate_report_pdf(data):
         y -= 4
 
         titulo = bloque.get("titulo", "").lower()
-        es_cadena = "cadena" in titulo
+        es_cadena = "cadena" in titulo or "miofasial" in titulo or "miofascial" in titulo
         es_barre = "barré" in titulo or "barre" in titulo
 
         # Barré classification badge
@@ -521,21 +541,37 @@ def generate_report_pdf(data):
             c.drawString(MARGIN_L + 16, y, f"Tipo de cadena: {bloque['tipo']}")
             y -= 22
 
-        # Explicación
+        # Explicación con wrap de texto
         if bloque.get("explicacion"):
             exp_text = bloque["explicacion"]
+            words = exp_text.split()
+            lines, cur = [], ""
+            for w in words:
+                test = (cur + " " + w).strip()
+                if len(test) > 88:
+                    lines.append(cur)
+                    cur = w
+                else:
+                    cur = test
+            if cur:
+                lines.append(cur)
+            exp_h = max(36, 14 * len(lines) + 26)
+            if y - exp_h < 80:
+                page_num += 1
+                y = new_page(c, width, height, page_num)
+                y -= 10
             c.setFillColor(colors.HexColor("#EBF8FF"))
-            c.roundRect(MARGIN_L + 8, y - 18, COL_WIDTH - 8, 22, 3, fill=1, stroke=0)
+            c.roundRect(MARGIN_L + 8, y - exp_h, COL_WIDTH - 8, exp_h, 3, fill=1, stroke=0)
             c.setFillColor(ACCENT)
             c.setFont("Helvetica-BoldOblique", 8)
-            c.drawString(MARGIN_L + 16, y - 7, "Explicación:")
+            c.drawString(MARGIN_L + 16, y - 12, "Explicación:")
             c.setFillColor(TEXT_MID)
             c.setFont("Helvetica", 8.5)
-            max_chars = 90
-            if len(exp_text) > max_chars:
-                exp_text = exp_text[:max_chars] + "…"
-            c.drawString(MARGIN_L + 80, y - 7, exp_text)
-            y -= 28
+            line_y = y - 26
+            for ln in lines:
+                c.drawString(MARGIN_L + 16, line_y, ln)
+                line_y -= 14
+            y -= exp_h + 8
 
         # Métricas normales (no cadena)
         if bloque.get("metricas") and not es_cadena:
@@ -598,13 +634,14 @@ def generate_report_pdf(data):
 
         y -= 8
 
-        # Separador entre bloques
-        c.setStrokeColor(DIVIDER)
-        c.setLineWidth(0.4)
-        c.setDash(3, 3)
-        c.line(MARGIN_L + 20, y, width - MARGIN_R - 20, y)
-        c.setDash()
-        y -= 16
+        # Separador entre bloques (solo si hay espacio suficiente)
+        if y > 80:
+            c.setStrokeColor(DIVIDER)
+            c.setLineWidth(0.4)
+            c.setDash(3, 3)
+            c.line(MARGIN_L + 20, y, width - MARGIN_R - 20, y)
+            c.setDash()
+            y -= 16
 
     # Notas clínicas
     notas = data.get("notas", "")

@@ -5,7 +5,10 @@ import base64
 import cv2
 import numpy as np
 import mediapipe as mp
+from mediapipe.tasks import python as mp_tasks
+from mediapipe.tasks.python import vision as mp_vision
 import logging
+import os
 from report_utils import generate_report_pdf
 
 router = APIRouter()
@@ -39,47 +42,58 @@ def angle_between_points(a, b, c):
     return deg
 
 
+# Landmark indices (mediapipe Tasks API — same numbering as legacy solutions)
+_LM = {
+    "NOSE": 0, "LEFT_EAR": 7, "RIGHT_EAR": 8,
+    "LEFT_SHOULDER": 11, "RIGHT_SHOULDER": 12,
+    "LEFT_HIP": 23, "RIGHT_HIP": 24,
+    "LEFT_KNEE": 25, "RIGHT_KNEE": 26,
+    "LEFT_ANKLE": 27, "RIGHT_ANKLE": 28,
+}
+
+_MODEL_PATH = os.path.join(os.path.dirname(__file__), "pose_landmarker_full.task")
+
 class PoseDetector:
     def __init__(self):
-        self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
+        base_options = mp_tasks.BaseOptions(model_asset_path=_MODEL_PATH)
+        options = mp_vision.PoseLandmarkerOptions(base_options=base_options)
+        self._landmarker = mp_vision.PoseLandmarker.create_from_options(options)
 
     def detect(self, image):
         img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = self.pose.process(img_rgb)
-        if not results.pose_landmarks:
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+        result = self._landmarker.detect(mp_image)
+        if not result.pose_landmarks:
             raise Exception("No landmarks")
         h, w = image.shape[:2]
-        lm = results.pose_landmarks.landmark
-        mp_lm = self.mp_pose.PoseLandmark
+        lm = result.pose_landmarks[0]
 
-        def pt(lm_id):
-            return (int(lm[lm_id].x * w), int(lm[lm_id].y * h))
+        def pt(idx):
+            return (int(lm[idx].x * w), int(lm[idx].y * h))
 
-        def vis(lm_id):
-            return lm[lm_id].visibility
+        def vis(idx):
+            return lm[idx].visibility
 
         return {
-            "left_hip":    pt(mp_lm.LEFT_HIP),
-            "left_knee":   pt(mp_lm.LEFT_KNEE),
-            "left_ankle":  pt(mp_lm.LEFT_ANKLE),
-            "right_hip":   pt(mp_lm.RIGHT_HIP),
-            "right_knee":  pt(mp_lm.RIGHT_KNEE),
-            "right_ankle": pt(mp_lm.RIGHT_ANKLE),
-            "right_shoulder": pt(mp_lm.RIGHT_SHOULDER),
-            "left_shoulder":  pt(mp_lm.LEFT_SHOULDER),
-            "nose":           pt(mp_lm.NOSE),
-            "left_ear":       pt(mp_lm.LEFT_EAR),
-            "right_ear":      pt(mp_lm.RIGHT_EAR),
-            # Visibility
-            "left_hip_vis":    vis(mp_lm.LEFT_HIP),
-            "left_knee_vis":   vis(mp_lm.LEFT_KNEE),
-            "left_ankle_vis":  vis(mp_lm.LEFT_ANKLE),
-            "right_hip_vis":   vis(mp_lm.RIGHT_HIP),
-            "right_knee_vis":  vis(mp_lm.RIGHT_KNEE),
-            "right_ankle_vis": vis(mp_lm.RIGHT_ANKLE),
-            "left_ear_vis":    vis(mp_lm.LEFT_EAR),
-            "right_ear_vis":   vis(mp_lm.RIGHT_EAR),
+            "left_hip":    pt(_LM["LEFT_HIP"]),
+            "left_knee":   pt(_LM["LEFT_KNEE"]),
+            "left_ankle":  pt(_LM["LEFT_ANKLE"]),
+            "right_hip":   pt(_LM["RIGHT_HIP"]),
+            "right_knee":  pt(_LM["RIGHT_KNEE"]),
+            "right_ankle": pt(_LM["RIGHT_ANKLE"]),
+            "right_shoulder": pt(_LM["RIGHT_SHOULDER"]),
+            "left_shoulder":  pt(_LM["LEFT_SHOULDER"]),
+            "nose":           pt(_LM["NOSE"]),
+            "left_ear":       pt(_LM["LEFT_EAR"]),
+            "right_ear":      pt(_LM["RIGHT_EAR"]),
+            "left_hip_vis":    vis(_LM["LEFT_HIP"]),
+            "left_knee_vis":   vis(_LM["LEFT_KNEE"]),
+            "left_ankle_vis":  vis(_LM["LEFT_ANKLE"]),
+            "right_hip_vis":   vis(_LM["RIGHT_HIP"]),
+            "right_knee_vis":  vis(_LM["RIGHT_KNEE"]),
+            "right_ankle_vis": vis(_LM["RIGHT_ANKLE"]),
+            "left_ear_vis":    vis(_LM["LEFT_EAR"]),
+            "right_ear_vis":   vis(_LM["RIGHT_EAR"]),
         }
 
 
@@ -441,17 +455,17 @@ def analyze_alignment_sagittal(file: UploadFile = File(...)):
     if abs(shoulder_ant) < THRESH and abs(ear_ant) < THRESH:
         classification = "Normal"
     elif shoulder_ant > THRESH and ear_ant > THRESH:
-        classification = "Proyección anterior de tronco y cabeza"
+        classification = "Antepulsión de tronco y cabeza"
     elif shoulder_ant < -THRESH and ear_ant < -THRESH:
-        classification = "Proyección posterior de tronco y cabeza"
+        classification = "Retropulsión de tronco y cabeza"
     elif ear_ant > THRESH:
-        classification = "Proyección anterior de la cabeza"
+        classification = "Antepulsión cefálica"
     elif ear_ant < -THRESH:
-        classification = "Proyección posterior de la cabeza"
+        classification = "Retropulsión cefálica"
     elif shoulder_ant > THRESH:
-        classification = "Proyección anterior del tronco"
+        classification = "Antepulsión del tronco"
     elif shoulder_ant < -THRESH:
-        classification = "Proyección posterior del tronco"
+        classification = "Retropulsión del tronco"
     else:
         classification = "Desalineación postural"
 
