@@ -155,6 +155,8 @@
 </template>
 
 <script setup>
+definePageMeta({ middleware: 'auth' })
+
 import Swal from 'sweetalert2'
 
 const { user: currentUser } = useAuth()

@@ -11,13 +11,17 @@ export default defineEventHandler(async (event) => {
   const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } })
   if (existing) throw createError({ statusCode: 409, message: 'Ya existe una cuenta con ese correo' })
 
+  // El primer usuario del sistema obtiene rol admin automáticamente
+  const userCount = await prisma.user.count()
+  const role = userCount === 0 ? 'admin' : 'doctor'
+
   const hashed = await bcrypt.hash(password, 10)
   return prisma.user.create({
     data: {
       email: email.trim().toLowerCase(),
       password: hashed,
       name: name?.trim() || null,
-      role: 'doctor',
+      role,
     },
     select: { id: true, email: true, name: true, role: true },
   })
