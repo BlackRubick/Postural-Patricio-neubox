@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
   password  String
   name      String?
-  role      String   @default("doctor")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      String    @default("doctor")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  patients  Patient[]
 }
 
 model Patient {
@@ -23,6 +24,8 @@ model Patient {
   edad      Int
   sexo      String
   altura    Float?
+  userId    Int?
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   analyses  Analysis[]

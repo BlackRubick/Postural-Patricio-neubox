@@ -25,3 +25,17 @@ export async function requireAdmin(event: Parameters<typeof getCookie>[0]) {
   if (user.role !== 'admin') throw createError({ statusCode: 403, message: 'Acceso denegado: se requiere rol admin' })
   return user
 }
+
+export async function requirePatientAccess(
+  event: Parameters<typeof getCookie>[0],
+  patientId: number,
+) {
+  const user = await requireAuth(event)
+  if (user.role === 'admin') return user
+
+  const patient = await prisma.patient.findUnique({ where: { id: patientId }, select: { userId: true } })
+  if (!patient) throw createError({ statusCode: 404, message: 'Paciente no encontrado' })
+  if (patient.userId !== user.id) throw createError({ statusCode: 403, message: 'Sin acceso a este paciente' })
+
+  return user
+}
