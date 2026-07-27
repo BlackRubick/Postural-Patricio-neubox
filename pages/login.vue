@@ -236,15 +236,16 @@ async function handleRegister() {
   if (regPassword.value.length < 6) { regError.value = 'La contraseña debe tener al menos 6 caracteres'; return }
   regLoading.value = true
   try {
+    const registeredEmail = regEmail.value
+    const registeredPassword = regPassword.value
     await $fetch('/api/auth/register', {
       method: 'POST',
-      body: { name: regName.value, email: regEmail.value, password: regPassword.value },
+      body: { name: regName.value, email: registeredEmail, password: registeredPassword },
     })
     showRegister.value = false
     regName.value = ''; regEmail.value = ''; regPassword.value = ''
-    email.value = regEmail.value
     errorMsg.value = ''
-    await login(regEmail.value, regPassword.value).catch(() => {})
+    await login(registeredEmail, registeredPassword)
     await navigateTo('/')
   } catch (e) {
     regError.value = e?.data?.message || 'No se pudo crear la cuenta'
