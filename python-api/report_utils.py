@@ -419,7 +419,7 @@ def draw_consent_page(c, width, height, page_num=99):
 
     c.setFillColor(ACCENT)
     c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(MARGIN_L, y, "Proyecto: NEXO-POSTURAL: Kyene'is Pøndyam")
+    c.drawString(MARGIN_L, y, "NEXO-POSTURAL: Kyene'is Pøndyam")
     y -= 22
 
     sections = [
