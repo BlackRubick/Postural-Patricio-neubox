@@ -178,12 +178,6 @@ const modalOpen = ref(false)
 function handleSubmit() {
   if (!consent.value) return
   emit('save', { ...form.value })
-  Swal.fire({
-    icon: 'success',
-    title: props.initial ? 'Paciente editado' : 'Paciente registrado',
-    timer: 1600,
-    showConfirmButton: false,
-  })
 }
 
 function handleCancel() {

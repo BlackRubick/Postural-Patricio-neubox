@@ -11,6 +11,7 @@
 </template>
 
 <script setup>
+import Swal from 'sweetalert2'
 import { usePatientsStore } from '~/stores/patients'
 
 const route = useRoute()
@@ -33,9 +34,10 @@ const patient = computed(() =>
 async function handleSave(data) {
   try {
     await store.updatePatient(Number(route.params.id), data)
+    await Swal.fire({ icon: 'success', title: 'Paciente actualizado', timer: 1400, showConfirmButton: false })
     navigateTo('/')
   } catch (e) {
-    console.error('Error actualizando paciente:', e)
+    Swal.fire({ icon: 'error', title: 'Error', text: e?.data?.message || 'No se pudo actualizar el paciente.' })
   }
 }
 </script>
