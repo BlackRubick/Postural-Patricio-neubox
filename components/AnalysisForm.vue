@@ -806,7 +806,13 @@ function stopStream() {
 
 async function refreshCameras() {
   if (!navigator.mediaDevices?.enumerateDevices) return
+  // getUserMedia is required first so the browser exposes device labels
+  let tempStream = null
+  try {
+    tempStream = await navigator.mediaDevices.getUserMedia({ video: true })
+  } catch {}
   availableCameras.value = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput')
+  tempStream?.getTracks().forEach(t => t.stop())
   if (availableCameras.value.length && !form.value.cameraDevice) {
     form.value.cameraDevice = availableCameras.value[0].deviceId
   }
