@@ -318,6 +318,7 @@
 </template>
 
 <script setup>
+import { nextTick } from 'vue'
 import Swal from 'sweetalert2'
 import { usePatientsStore } from '~/stores/patients'
 
@@ -806,15 +807,21 @@ function stopStream() {
 async function refreshCameras() {
   if (!navigator.mediaDevices?.enumerateDevices) return
   availableCameras.value = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput')
+  if (availableCameras.value.length && !form.value.cameraDevice) {
+    form.value.cameraDevice = availableCameras.value[0].deviceId
+  }
 }
+
+watch(() => form.value.tomarFoto, (val) => { if (val) refreshCameras() })
 
 async function handleOpenCamera() {
   if (!form.value.cameraDevice) return alert('Selecciona una cámara')
   showCamera.value = true
+  await nextTick()
   try {
     const ms = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: form.value.cameraDevice } } })
     stream.value = ms
-    setTimeout(() => { if (videoRef.value) videoRef.value.srcObject = ms }, 100)
+    if (videoRef.value) videoRef.value.srcObject = ms
   } catch {
     alert('No se pudo acceder a la cámara')
     showCamera.value = false
