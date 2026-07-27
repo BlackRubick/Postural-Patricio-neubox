@@ -250,7 +250,11 @@
             Abrir cámara
           </button>
         </div>
-        <div v-if="form[uploadKey]" class="camera-ok">
+        <div v-if="pieLoading" class="upload-loading" style="margin-top:0">
+          <div class="spinner" style="width:18px;height:18px;border-width:2px"></div>
+          <span>Analizando imagen…</span>
+        </div>
+        <div v-else-if="form[uploadKey]" class="camera-ok">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"/></svg>
           Foto capturada correctamente
         </div>
@@ -437,6 +441,7 @@ const currentResult = computed(() => {
 })
 
 const isNextDisabled = computed(() => {
+  if (pieLoading.value) return true
   if (step.value === 0) return !form.value.podometriaImg
   if (step.value === 1) return !form.value.tibiofemoralFrontal
   if (step.value === 2) return !form.value.tibiofemoralSagital
@@ -455,14 +460,17 @@ function errMsg(data, fallback) {
 async function handleFileChange(e) {
   const files = e.target.files
   if (!files?.length) return
-  const key = uploadKey.value
-  form.value[key] = files[0]
+  form.value[uploadKey.value] = files[0]
+  await processImageFile(files[0])
+}
+
+async function processImageFile(file) {
   pieLoading.value = true
   const s = step.value
   const endpoint = STEPS[s]?.endpoint || ''
   const label = STEPS[s]?.short || 'imagen'
   const fd = new FormData()
-  fd.append('file', files[0])
+  fd.append('file', file)
   if (s === 5 && form.value.miofascialFrontalImg) fd.append('file_frontal', form.value.miofascialFrontalImg)
   if (s === 5 && form.value.miofascialPosteriorImg) fd.append('file_posterior', form.value.miofascialPosteriorImg)
   if (s === 0) {
@@ -483,7 +491,6 @@ async function handleFileChange(e) {
     let ok = false
     if (s === 0 && data?.metrics) {
       ok = true
-      // metrics ahora es array (un entry por pie)
       const metricsArr = Array.isArray(data.metrics) ? data.metrics : [data.metrics]
       analisisState.value.podometria.result = metricsArr.map(m => ({
         lado: m.side || '',
@@ -499,7 +506,7 @@ async function handleFileChange(e) {
       if (data.images?.annotated) { analisisState.value.podometria.debugImg = data.images.annotated; pieDebugImg.value = data.images.annotated }
       const reader = new FileReader()
       reader.onload = ev => { analisisState.value.podometria.huella = ev.target.result }
-      reader.readAsDataURL(files[0])
+      reader.readAsDataURL(file)
     } else if (s === 1 && data?.metrics) {
       ok = true
       analisisState.value.frontal.result = { tipo: data.metrics.classification, angulo: data.metrics.knee_angle_deg?.toFixed(1) + '°' }
@@ -839,7 +846,13 @@ function handleCapture() {
   const v = videoRef.value, c = canvasRef.value
   c.width = v.videoWidth; c.height = v.videoHeight
   c.getContext('2d').drawImage(v, 0, 0)
-  c.toBlob(blob => { form.value[uploadKey.value] = blob; showCamera.value = false; stopStream() })
+  c.toBlob(async (blob) => {
+    if (!blob) return
+    form.value[uploadKey.value] = blob
+    showCamera.value = false
+    stopStream()
+    await processImageFile(blob)
+  })
 }
 </script>
 
